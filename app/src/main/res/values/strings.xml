@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">To Do List</string>
+    <string name="add_date">Date</string>
+    <string name="add_date_label">Add a Date</string>
+    <string name="add_task">Task</string>
+    <string name="add_task_label">Add a Task</string>
+    <string name="add_button">Add</string>
 </resources>
