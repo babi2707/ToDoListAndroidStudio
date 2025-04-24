@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -123,13 +124,11 @@ fun ToDoLayout() {
 fun EditDateField(
     value: String,
     onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier){
-
-    val showDatePicker = remember { mutableStateOf(false) }
-
-    val dateFormatter = remember {
-        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-    }
+    modifier: Modifier = Modifier
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+    val context = LocalContext.current
 
     TextField(
         value = value,
@@ -137,9 +136,7 @@ fun EditDateField(
         label = { Text(stringResource(R.string.add_date_label)) },
         modifier = modifier
             .fillMaxWidth()
-            .clickable { showDatePicker.value = true },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+            .clickable { showDatePicker = true },
         readOnly = true,
         trailingIcon = {
             Icon(
@@ -149,41 +146,21 @@ fun EditDateField(
         }
     )
 
-    if (showDatePicker.value) {
-        val calendar = Calendar.getInstance()
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = try {
-                dateFormatter.parse(value)?.time ?: calendar.timeInMillis
-            } catch (e: Exception) {
-                calendar.timeInMillis
-            }
+    if (showDatePicker) {
+        val datePicker = android.app.DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                val calendar = Calendar.getInstance()
+                calendar.set(year, month, day)
+                onValueChange(dateFormatter.format(calendar.time))
+                showDatePicker = false
+            },
+            Calendar.getInstance().get(Calendar.YEAR),
+            Calendar.getInstance().get(Calendar.MONTH),
+            Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
         )
 
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker.value = false },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            val dateStr = dateFormatter.format(Date(millis))
-                            onValueChange(dateStr)
-                        }
-                        showDatePicker.value = false
-                    }
-                ) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                Button(
-                    onClick = { showDatePicker.value = false }
-                ) {
-                    Text("Cancelar")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+        datePicker.show()
     }
 }
 
