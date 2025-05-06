@@ -119,50 +119,22 @@ fun ToDoLayout() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditDateField(
     value: String,
     onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var showDatePicker by remember { mutableStateOf(false) }
-    val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
-    val context = LocalContext.current
+    modifier: Modifier = Modifier){
 
     TextField(
         value = value,
-        onValueChange = {},
+        onValueChange = onValueChange,
         label = { Text(stringResource(R.string.add_date_label)) },
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { showDatePicker = true },
-        readOnly = true,
-        trailingIcon = {
-            Icon(
-                imageVector = Icons.Default.DateRange,
-                contentDescription = "Selecionar data"
-            )
-        }
+        modifier = modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
     )
-
-    if (showDatePicker) {
-        val datePicker = android.app.DatePickerDialog(
-            context,
-            { _, year, month, day ->
-                val calendar = Calendar.getInstance()
-                calendar.set(year, month, day)
-                onValueChange(dateFormatter.format(calendar.time))
-                showDatePicker = false
-            },
-            Calendar.getInstance().get(Calendar.YEAR),
-            Calendar.getInstance().get(Calendar.MONTH),
-            Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
-        )
-
-        datePicker.show()
-    }
 }
+
 
 @Composable
 fun EditTaskField(
