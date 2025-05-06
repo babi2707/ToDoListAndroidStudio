@@ -5,10 +5,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.benchmark.perfetto.Row
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,21 +19,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -41,17 +37,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.todolist.ui.theme.ToDoListTheme
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,7 +70,13 @@ fun ToDoLayout() {
     var dateInput by remember { mutableStateOf("") }
     var taskInput by remember { mutableStateOf("") }
 
-    val taskList = remember { mutableStateListOf<Pair<String, String>>() }
+    data class TaskItem(
+        val date: String,
+        val task: String,
+        var isDone: Boolean = false
+    )
+
+    val taskList = remember { mutableStateListOf<TaskItem>() }
 
     Column(
         modifier = Modifier
@@ -121,7 +123,7 @@ fun ToDoLayout() {
 
         Button(onClick = {
             if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
-                taskList.add(Pair(dateInput, taskInput))
+                taskList.add(TaskItem(dateInput, taskInput))
                 dateInput = ""
                 taskInput = ""
             }
@@ -131,16 +133,45 @@ fun ToDoLayout() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        taskList.forEach { (date, task) ->
-            Text(
-                text = "Date: $date  |  Task: $task",
-                fontSize = 20.sp,
+        taskList.forEachIndexed { index, taskItem ->
+            Row(
                 modifier = Modifier
-                    .padding(vertical = 4.dp)
                     .fillMaxWidth()
+                    .padding(vertical = 4.dp)
                     .background(color = Color.Magenta, shape = MaterialTheme.shapes.medium)
-                    .padding(8.dp)
-            )
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(24.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            taskList[index] = taskItem.copy(isDone = !taskItem.isDone)
+                        },
+                    color = if (taskItem.isDone) Color.Green else Color.LightGray,
+                    contentColor = Color.White,
+                    shape = CircleShape,
+                ) {
+                    if (taskItem.isDone) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Done",
+                            modifier = Modifier.padding(2.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = "Date: ${taskItem.date} | Task: ${taskItem.task}",
+                    fontSize = 18.sp,
+                    color = if (taskItem.isDone) Color.Gray else Color.Black,
+                    style = if (taskItem.isDone) MaterialTheme.typography.bodyMedium.copy(
+                        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                    ) else MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }
