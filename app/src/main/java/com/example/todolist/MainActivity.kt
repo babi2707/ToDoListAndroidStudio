@@ -34,6 +34,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -72,10 +73,8 @@ class MainActivity : ComponentActivity() {
 fun ToDoLayout() {
     var dateInput by remember { mutableStateOf("") }
     var taskInput by remember { mutableStateOf("") }
-    var showText by remember { mutableStateOf(false) }
 
-    var lastDate by remember { mutableStateOf("") }
-    var lastTask by remember { mutableStateOf("") }
+    val taskList = remember { mutableStateListOf<Pair<String, String>>() }
 
     Column(
         modifier = Modifier
@@ -121,23 +120,26 @@ fun ToDoLayout() {
         Spacer(modifier = Modifier.height(5.dp))
 
         Button(onClick = {
-            showText = true
-            lastDate = dateInput
-            lastTask = taskInput
-            dateInput = ""
-            taskInput = ""
+            if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
+                taskList.add(Pair(dateInput, taskInput))
+                dateInput = ""
+                taskInput = ""
+            }
         }) {
             Text(stringResource(R.string.add_button))
         }
 
-        if (showText) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        taskList.forEach { (date, task) ->
             Text(
-                text = "Date: $lastDate  |  Task: $lastTask",
-                style = MaterialTheme.typography.displaySmall,
+                text = "Date: $date  |  Task: $task",
                 fontSize = 20.sp,
-                modifier = Modifier.padding(top = 16.dp)
-                    .background(color = Color.Magenta, shape = MaterialTheme.shapes.medium)
+                modifier = Modifier
+                    .padding(vertical = 4.dp)
                     .fillMaxWidth()
+                    .background(color = Color.Magenta, shape = MaterialTheme.shapes.medium)
+                    .padding(8.dp)
             )
         }
     }
