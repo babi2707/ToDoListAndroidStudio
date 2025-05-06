@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +27,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -43,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.todolist.ui.theme.ToDoListTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -69,6 +72,10 @@ class MainActivity : ComponentActivity() {
 fun ToDoLayout() {
     var dateInput by remember { mutableStateOf("") }
     var taskInput by remember { mutableStateOf("") }
+    var showText by remember { mutableStateOf(false) }
+
+    var lastDate by remember { mutableStateOf("") }
+    var lastTask by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -113,8 +120,25 @@ fun ToDoLayout() {
 
         Spacer(modifier = Modifier.height(5.dp))
 
-        Button(onClick = { }) {
+        Button(onClick = {
+            showText = true
+            lastDate = dateInput
+            lastTask = taskInput
+            dateInput = ""
+            taskInput = ""
+        }) {
             Text(stringResource(R.string.add_button))
+        }
+
+        if (showText) {
+            Text(
+                text = "Date: $lastDate  |  Task: $lastTask",
+                style = MaterialTheme.typography.displaySmall,
+                fontSize = 20.sp,
+                modifier = Modifier.padding(top = 16.dp)
+                    .background(color = Color.Magenta, shape = MaterialTheme.shapes.medium)
+                    .fillMaxWidth()
+            )
         }
     }
 }
