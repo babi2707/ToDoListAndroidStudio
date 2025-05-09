@@ -49,7 +49,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.FilterChip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -227,16 +227,48 @@ fun ToDoLayout() {
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        Text(
-                            text = "Date: ${formatDateForDisplay(taskItem.date)} | Task: ${taskItem.task}",
-                            fontSize = 18.sp,
-                            color = if (taskItem.isDone) Color.DarkGray else Color.Black,
-                            style = if (taskItem.isDone) MaterialTheme.typography.bodyMedium.copy(
-                                textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
-                            ) else MaterialTheme.typography.bodyMedium
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = "Date",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = formatDateForDisplay(taskItem.date),
+                                    fontSize = 16.sp,
+                                    color = if (taskItem.isDone) Color.DarkGray else Color.Black,
+                                    style = if (taskItem.isDone) MaterialTheme.typography.bodyMedium.copy(
+                                        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                                    ) else MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Task",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = taskItem.task,
+                                    fontSize = 16.sp,
+                                    color = if (taskItem.isDone) Color.DarkGray else Color.Black,
+                                    style = if (taskItem.isDone) MaterialTheme.typography.bodyMedium.copy(
+                                        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                                    ) else MaterialTheme.typography.bodyMedium,
+                                    softWrap = true
+                                )
+                            }
+                        }
 
                         Icon(
                             imageVector = Icons.Default.Delete,
