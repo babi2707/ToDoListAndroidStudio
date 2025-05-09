@@ -1,11 +1,10 @@
-
 package com.example.todolist
 
+import android.app.DatePickerDialog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.benchmark.perfetto.Row
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +47,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +75,7 @@ class MainActivity : ComponentActivity() {
 fun ToDoLayout() {
     var dateInput by remember { mutableStateOf("") }
     var taskInput by remember { mutableStateOf("") }
+    var isDateValid by remember { mutableStateOf(true) }
 
     data class TaskItem(
         val date: String,
@@ -96,11 +103,13 @@ fun ToDoLayout() {
 
         EditDateField(
             value = dateInput,
-            onValueChange = { dateInput = it },
+            onValueChange = {
+                dateInput = it
+                isDateValid = true
+            },
             modifier = Modifier
                 .padding(bottom = 5.dp)
                 .fillMaxWidth()
-                .background(color = Color.Magenta)
         )
 
         Text(
@@ -116,13 +125,13 @@ fun ToDoLayout() {
             modifier = Modifier
                 .padding(bottom = 32.dp)
                 .fillMaxWidth()
-                .background(color = Color.Magenta)
         )
 
         Spacer(modifier = Modifier.height(5.dp))
 
         Button(onClick = {
             if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
+                isDateValid = true
                 taskList.add(TaskItem(dateInput, taskInput))
                 dateInput = ""
                 taskInput = ""
@@ -138,7 +147,7 @@ fun ToDoLayout() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
-                    .background(color = Color.Magenta, shape = MaterialTheme.shapes.medium)
+                    .background(color = Color.hsl(300f, 0.4f, 0.75f), shape = MaterialTheme.shapes.medium)
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -148,7 +157,7 @@ fun ToDoLayout() {
                         .clickable {
                             taskList[index] = taskItem.copy(isDone = !taskItem.isDone)
                         },
-                    color = if (taskItem.isDone) Color.Green else Color.LightGray,
+                    color = if (taskItem.isDone) Color.hsl(120f, 0.4f, 0.55f) else Color.LightGray,
                     contentColor = Color.White,
                     shape = CircleShape,
                 ) {
@@ -164,9 +173,9 @@ fun ToDoLayout() {
                 Spacer(modifier = Modifier.width(8.dp))
 
                 Text(
-                    text = "Date: ${taskItem.date} | Task: ${taskItem.task}",
+                    text = "Date: ${formatDateForDisplay(taskItem.date)} | Task: ${taskItem.task}",
                     fontSize = 18.sp,
-                    color = if (taskItem.isDone) Color.Gray else Color.Black,
+                    color = if (taskItem.isDone) Color.DarkGray else Color.Black,
                     style = if (taskItem.isDone) MaterialTheme.typography.bodyMedium.copy(
                         textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
                     ) else MaterialTheme.typography.bodyMedium
@@ -180,7 +189,25 @@ fun ToDoLayout() {
 fun EditDateField(
     value: String,
     onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier){
+    modifier: Modifier = Modifier
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    if (showDatePicker) {
+        val calendar = Calendar.getInstance()
+        DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                val formattedDate = "%02d/%02d/%04d".format(day, month + 1, year)
+                onValueChange(formattedDate)
+                showDatePicker = false
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
 
     TextField(
         value = value,
@@ -188,8 +215,55 @@ fun EditDateField(
         label = { Text(stringResource(R.string.add_date_label)) },
         modifier = modifier.fillMaxWidth(),
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        visualTransformation = DateTransformation(),
+        trailingIcon = {
+            Icon(
+                imageVector = Icons.Default.DateRange,
+                contentDescription = "Select date",
+                modifier = Modifier.clickable { showDatePicker = true }
+            )
+        }
     )
+}
+
+fun formatDateForDisplay(date: String): String {
+    return if (date.length == 8) {
+        "${date.take(2)}/${date.substring(2, 4)}/${date.substring(4)}"
+    } else {
+        date
+    }
+}
+
+class DateTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        var output = ""
+        text.text.forEachIndexed { index, char ->
+            output += char
+            when (index) {
+                1, 3 -> output += "/"
+            }
+        }
+        return TransformedText(AnnotatedString(output), DateOffsetMapper)
+    }
+}
+
+object DateOffsetMapper : OffsetMapping {
+    override fun originalToTransformed(offset: Int): Int {
+        return when {
+            offset <= 1 -> offset
+            offset <= 3 -> offset + 1
+            else -> offset + 2
+        }
+    }
+
+    override fun transformedToOriginal(offset: Int): Int {
+        return when {
+            offset <= 2 -> offset
+            offset <= 5 -> offset - 1
+            else -> offset - 2
+        }
+    }
 }
 
 
