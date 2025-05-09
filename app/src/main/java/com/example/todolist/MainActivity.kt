@@ -42,12 +42,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.todolist.ui.theme.ToDoListTheme
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping
@@ -71,11 +74,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+enum class FilterType {
+    ALL, PENDING, COMPLETED
+}
+
 @Composable
 fun ToDoLayout() {
     var dateInput by remember { mutableStateOf("") }
     var taskInput by remember { mutableStateOf("") }
     var isDateValid by remember { mutableStateOf(true) }
+    var selectedFilter by remember { mutableStateOf(FilterType.ALL) }
 
     data class TaskItem(
         val date: String,
@@ -84,6 +92,14 @@ fun ToDoLayout() {
     )
 
     val taskList = remember { mutableStateListOf<TaskItem>() }
+
+    val filteredTasks = remember(taskList, selectedFilter) {
+        when (selectedFilter) {
+            FilterType.ALL -> taskList
+            FilterType.PENDING -> taskList.filter { !it.isDone }
+            FilterType.COMPLETED -> taskList.filter { it.isDone }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -142,44 +158,98 @@ fun ToDoLayout() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        taskList.forEachIndexed { index, taskItem ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .background(color = Color.hsl(300f, 0.4f, 0.75f), shape = MaterialTheme.shapes.medium)
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    modifier = Modifier.size(24.dp)
-                        .clip(CircleShape)
-                        .clickable {
-                            taskList[index] = taskItem.copy(isDone = !taskItem.isDone)
-                        },
-                    color = if (taskItem.isDone) Color.hsl(120f, 0.4f, 0.55f) else Color.LightGray,
-                    contentColor = Color.White,
-                    shape = CircleShape,
-                ) {
-                    if (taskItem.isDone) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            FilterChip(
+                selected = selectedFilter == FilterType.ALL,
+                onClick = { selectedFilter = FilterType.ALL },
+                label = { Text("All") },
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+
+            FilterChip(
+                selected = selectedFilter == FilterType.PENDING,
+                onClick = { selectedFilter = FilterType.PENDING },
+                label = { Text("Pending") },
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+
+            FilterChip(
+                selected = selectedFilter == FilterType.COMPLETED,
+                onClick = { selectedFilter = FilterType.COMPLETED },
+                label = { Text("Completed") },
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (filteredTasks.isEmpty()) {
+            Text(
+                text = "No tasks found",
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        } else {
+            filteredTasks.forEachIndexed { index, taskItem ->
+                val actualIndex = taskList.indexOfFirst { it.date == taskItem.date && it.task == taskItem.task }
+                if (actualIndex != -1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .background(color = Color.hsl(300f, 0.4f, 0.75f), shape = MaterialTheme.shapes.medium)
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(24.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    taskList[actualIndex] = taskList[actualIndex].copy(isDone = !taskList[actualIndex].isDone)
+                                },
+                            color = if (taskItem.isDone) Color.hsl(120f, 0.4f, 0.55f) else Color.LightGray,
+                            contentColor = Color.White,
+                            shape = CircleShape,
+                        ) {
+                            if (taskItem.isDone) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Done",
+                                    modifier = Modifier.padding(2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = "Date: ${formatDateForDisplay(taskItem.date)} | Task: ${taskItem.task}",
+                            fontSize = 18.sp,
+                            color = if (taskItem.isDone) Color.DarkGray else Color.Black,
+                            style = if (taskItem.isDone) MaterialTheme.typography.bodyMedium.copy(
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                            ) else MaterialTheme.typography.bodyMedium
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
                         Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Done",
-                            modifier = Modifier.padding(2.dp)
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete task",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable {
+                                    taskList.removeAt(actualIndex)
+                                },
+                            tint = MaterialTheme.colorScheme.error
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Text(
-                    text = "Date: ${formatDateForDisplay(taskItem.date)} | Task: ${taskItem.task}",
-                    fontSize = 18.sp,
-                    color = if (taskItem.isDone) Color.DarkGray else Color.Black,
-                    style = if (taskItem.isDone) MaterialTheme.typography.bodyMedium.copy(
-                        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
-                    ) else MaterialTheme.typography.bodyMedium
-                )
             }
         }
     }
