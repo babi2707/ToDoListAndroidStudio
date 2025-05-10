@@ -78,18 +78,18 @@ enum class FilterType {
     ALL, PENDING, COMPLETED
 }
 
+data class TaskItem(
+    val date: String,
+    val task: String,
+    var isDone: Boolean = false
+)
+
 @Composable
 fun ToDoLayout() {
     var dateInput by remember { mutableStateOf("") }
     var taskInput by remember { mutableStateOf("") }
     var isDateValid by remember { mutableStateOf(true) }
     var selectedFilter by remember { mutableStateOf(FilterType.ALL) }
-
-    data class TaskItem(
-        val date: String,
-        val task: String,
-        var isDone: Boolean = false
-    )
 
     val taskList = remember { mutableStateListOf<TaskItem>() }
 
@@ -301,7 +301,7 @@ fun EditDateField(
         DatePickerDialog(
             context,
             { _, year, month, day ->
-                val formattedDate = "%02d/%02d/%04d".format(day, month + 1, year)
+                val formattedDate = "%02d%02d%04d".format(day, month + 1, year)
                 onValueChange(formattedDate)
                 showDatePicker = false
             },
@@ -310,6 +310,7 @@ fun EditDateField(
             calendar.get(Calendar.DAY_OF_MONTH)
         ).show()
     }
+
 
     TextField(
         value = value,
