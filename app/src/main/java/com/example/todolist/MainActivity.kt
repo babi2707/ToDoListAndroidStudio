@@ -1,10 +1,14 @@
 package com.example.todolist
 
 import android.app.DatePickerDialog
+import android.content.Context
+import android.content.ContextWrapper
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +60,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import java.util.Calendar
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -106,6 +112,8 @@ fun ToDoLayout() {
             FilterType.COMPLETED -> taskList.filter { it.isDone }
         }
     }
+
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -296,12 +304,21 @@ fun ToDoLayout() {
         if(filteredTasks.isNotEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Button(onClick = {
-                    taskList.replaceAll { task ->
-                        task.copy(
-                            date = decrypt(task.date),
-                            task = decrypt(task.task)
-                        )
-                    }
+
+                    authenticateBiometric(
+                        context = context,
+                        onSuccess = {
+                            taskList.replaceAll { task ->
+                                task.copy(
+                                    date = decrypt(task.date),
+                                    task = decrypt(task.task)
+                                )
+                            }
+                        },
+                        onError = {
+                            Toast.makeText(context, "Biometric authentication failed.", Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 }) {
                     Text(stringResource(R.string.decrypt_button))
                 }
@@ -455,6 +472,57 @@ fun decrypt(encoded: String): String {
     cipher.init(Cipher.DECRYPT_MODE, key, ivSpec)
     val decryptedBytes = cipher.doFinal(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT))
     return String(decryptedBytes)
+}
+
+// biometric
+fun authenticateBiometric(context: Context, onSuccess: () -> Unit, onError: () -> Unit) {
+    val activity = context.findFragmentActivity()
+    if (activity == null) {
+        onError()
+        return
+    }
+
+    val executor = ContextCompat.getMainExecutor(context)
+
+    val biometricPrompt = BiometricPrompt(
+        activity,
+        executor,
+        object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                super.onAuthenticationSucceeded(result)
+                onSuccess()
+            }
+
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                super.onAuthenticationError(errorCode, errString)
+                onError()
+            }
+
+            override fun onAuthenticationFailed() {
+                super.onAuthenticationFailed()
+                onError()
+            }
+        }
+    )
+
+    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+        .setTitle("Autenticação Biométrica")
+        .setSubtitle("Use sua digital para descriptografar suas tarefas")
+        .setNegativeButtonText("Cancelar")
+        .build()
+
+    biometricPrompt.authenticate(promptInfo)
+}
+
+fun Context.findFragmentActivity(): FragmentActivity? {
+    var currentContext = this
+    while (currentContext is ContextWrapper) {
+        if (currentContext is FragmentActivity) {
+            return currentContext
+        }
+        currentContext = currentContext.baseContext
+    }
+    return null
 }
 
 
