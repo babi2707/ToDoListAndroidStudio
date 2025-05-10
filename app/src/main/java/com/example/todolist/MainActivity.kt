@@ -87,6 +87,9 @@ data class TaskItem(
     var isDone: Boolean = false
 )
 
+var aesKey: SecretKey? = null
+val ivMap = mutableMapOf<String, ByteArray>()
+
 @Composable
 fun ToDoLayout() {
     var dateInput by remember { mutableStateOf("") }
@@ -288,12 +291,37 @@ fun ToDoLayout() {
             }
         }
 
-        if(filteredTasks.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-            Button(onClick = {}) {
-                Text(stringResource(R.string.decrypt_button))
+        if(filteredTasks.isNotEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = {
+                    taskList.replaceAll { task ->
+                        task.copy(
+                            date = decrypt(task.date),
+                            task = decrypt(task.task)
+                        )
+                    }
+                }) {
+                    Text(stringResource(R.string.decrypt_button))
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Button(onClick = {
+                    taskList.replaceAll { task ->
+                        task.copy(
+                            date = crypto(task.date),
+                            task = crypto(task.task)
+                        )
+                    }
+                }) {
+                    Text(stringResource(R.string.crypt_button))
+                }
+
+
             }
+
         }
 
     }
@@ -401,16 +429,35 @@ fun EditTaskField(
 // cryptography
 fun crypto(text: String): String {
     val plaintext: ByteArray = text.toByteArray()
-    val keygen = KeyGenerator.getInstance("AES")
-    keygen.init(256)
-    val key: SecretKey = keygen.generateKey()
+
+    if (aesKey == null) {
+        val keygen = KeyGenerator.getInstance("AES")
+        keygen.init(256)
+        aesKey = keygen.generateKey()
+    }
+
     val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
-    cipher.init(Cipher.ENCRYPT_MODE, key)
+    cipher.init(Cipher.ENCRYPT_MODE, aesKey)
     val ciphertext: ByteArray = cipher.doFinal(plaintext)
     val iv: ByteArray = cipher.iv
 
-    return ciphertext.toString()
+    val encoded = android.util.Base64.encodeToString(ciphertext, android.util.Base64.DEFAULT)
+    ivMap[encoded] = iv
+
+    return encoded
 }
+
+fun decrypt(encoded: String): String {
+    val key = aesKey ?: return encoded
+    val iv = ivMap[encoded] ?: return encoded
+    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
+    val ivSpec = javax.crypto.spec.IvParameterSpec(iv)
+    cipher.init(Cipher.DECRYPT_MODE, key, ivSpec)
+    val decryptedBytes = cipher.doFinal(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT))
+    return String(decryptedBytes)
+}
+
+
 
 @Preview(showBackground = true)
 @Composable
