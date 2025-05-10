@@ -57,6 +57,9 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import java.util.Calendar
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -148,7 +151,7 @@ fun ToDoLayout() {
         Button(onClick = {
             if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
                 isDateValid = true
-                taskList.add(TaskItem(dateInput, taskInput))
+                taskList.add(TaskItem(crypto(dateInput), crypto(taskInput)))
                 dateInput = ""
                 taskInput = ""
             }
@@ -284,6 +287,15 @@ fun ToDoLayout() {
                 }
             }
         }
+
+        if(filteredTasks.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(onClick = {}) {
+                Text(stringResource(R.string.decrypt_button))
+            }
+        }
+
     }
 }
 
@@ -384,6 +396,20 @@ fun EditTaskField(
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
     )
+}
+
+// cryptography
+fun crypto(text: String): String {
+    val plaintext: ByteArray = text.toByteArray()
+    val keygen = KeyGenerator.getInstance("AES")
+    keygen.init(256)
+    val key: SecretKey = keygen.generateKey()
+    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
+    cipher.init(Cipher.ENCRYPT_MODE, key)
+    val ciphertext: ByteArray = cipher.doFinal(plaintext)
+    val iv: ByteArray = cipher.iv
+
+    return ciphertext.toString()
 }
 
 @Preview(showBackground = true)

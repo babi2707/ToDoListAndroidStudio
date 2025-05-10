@@ -5,4 +5,5 @@
     <string name="add_task">Task</string>
     <string name="add_task_label">Add a Task</string>
     <string name="add_button">Add</string>
+    <string name="decrypt_button">Decrypt</string>
 </resources>
