@@ -65,6 +65,11 @@ import java.util.Calendar
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import java.security.KeyStore
+import javax.crypto.spec.IvParameterSpec
+import android.util.Base64
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,8 +97,8 @@ data class TaskItem(
     var isDone: Boolean = false
 )
 
-var aesKey: SecretKey? = null
 val ivMap = mutableMapOf<String, ByteArray>()
+private const val KEY_ALIAS = "my_aes_key_alias"
 
 @Composable
 fun ToDoLayout() {
@@ -425,7 +430,6 @@ object DateOffsetMapper : OffsetMapping {
     }
 }
 
-
 @Composable
 fun EditTaskField(
     value: String,
@@ -443,33 +447,58 @@ fun EditTaskField(
 }
 
 // cryptography
-fun crypto(text: String): String {
-    val plaintext: ByteArray = text.toByteArray()
-
-    if (aesKey == null) {
-        val keygen = KeyGenerator.getInstance("AES")
-        keygen.init(256)
-        aesKey = keygen.generateKey()
+fun getKey(): SecretKey {
+    val keyStore: KeyStore = KeyStore.getInstance("AndroidKeyStore").apply {
+        load(null)
     }
 
-    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
-    cipher.init(Cipher.ENCRYPT_MODE, aesKey)
-    val ciphertext: ByteArray = cipher.doFinal(plaintext)
-    val iv: ByteArray = cipher.iv
+    val key = keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
+    if (key != null) {
+        return key.secretKey
+    }
 
-    val encoded = android.util.Base64.encodeToString(ciphertext, android.util.Base64.DEFAULT)
-    ivMap[encoded] = iv
+    val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+    keyGenerator.init(
+        KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .build()
+    )
 
-    return encoded
+    return keyGenerator.generateKey()
+}
+
+fun crypto(text: String): String {
+    val plaintext = text.toByteArray()
+
+    val key = getKey()
+
+    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+    cipher.init(Cipher.ENCRYPT_MODE, key)
+
+    val ciphertext = cipher.doFinal(plaintext)
+    val iv = cipher.iv
+
+    val encodedCiphertext = Base64.encodeToString(ciphertext, Base64.DEFAULT)
+    val encodedIv = Base64.encodeToString(iv, Base64.DEFAULT)
+
+    ivMap[encodedCiphertext] = iv
+
+    return "$encodedIv:$encodedCiphertext"
 }
 
 fun decrypt(encoded: String): String {
-    val key = aesKey ?: return encoded
-    val iv = ivMap[encoded] ?: return encoded
-    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
-    val ivSpec = javax.crypto.spec.IvParameterSpec(iv)
+    val key = getKey()
+
+    val parts = encoded.split(":")
+    val iv = Base64.decode(parts[0], Base64.DEFAULT)
+    val ciphertext = Base64.decode(parts[1], Base64.DEFAULT)
+
+    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+    val ivSpec = IvParameterSpec(iv)
     cipher.init(Cipher.DECRYPT_MODE, key, ivSpec)
-    val decryptedBytes = cipher.doFinal(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT))
+
+    val decryptedBytes = cipher.doFinal(ciphertext)
     return String(decryptedBytes)
 }
 
@@ -505,9 +534,9 @@ fun authenticateBiometric(context: Context, onSuccess: () -> Unit, onError: () -
     )
 
     val promptInfo = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Autenticação Biométrica")
-        .setSubtitle("Use sua digital para descriptografar suas tarefas")
-        .setNegativeButtonText("Cancelar")
+        .setTitle("Biometric Authentication")
+        .setSubtitle("Use your fingerprint or face ID to unlock the tasks")
+        .setNegativeButtonText("Cancel")
         .build()
 
     biometricPrompt.authenticate(promptInfo)
@@ -523,8 +552,6 @@ fun Context.findFragmentActivity(): FragmentActivity? {
     }
     return null
 }
-
-
 
 @Preview(showBackground = true)
 @Composable
