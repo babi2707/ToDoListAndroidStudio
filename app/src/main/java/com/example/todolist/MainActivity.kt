@@ -70,6 +70,7 @@ import android.security.keystore.KeyProperties
 import java.security.KeyStore
 import javax.crypto.spec.IvParameterSpec
 import android.util.Base64
+import androidx.compose.material.icons.filled.Lock
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,9 +93,10 @@ enum class FilterType {
 }
 
 data class TaskItem(
-    val date: String,
-    val task: String,
-    var isDone: Boolean = false
+    var date: String,
+    var task: String,
+    var isDone: Boolean = false,
+    var isEncrypted: Boolean = true
 )
 
 val ivMap = mutableMapOf<String, ByteArray>()
@@ -166,7 +168,7 @@ fun ToDoLayout() {
         Button(onClick = {
             if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
                 isDateValid = true
-                taskList.add(TaskItem(crypto(dateInput), crypto(taskInput)))
+                taskList.add(TaskItem(crypto(dateInput), crypto(taskInput), isEncrypted = true))
                 dateInput = ""
                 taskInput = ""
             }
@@ -297,6 +299,31 @@ fun ToDoLayout() {
                                     taskList.removeAt(actualIndex)
                                 },
                             tint = MaterialTheme.colorScheme.error
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = if (taskItem.isEncrypted) "Decrypt task" else "Encrypt task",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable {
+                                    authenticateBiometric(
+                                        context = context,
+                                        onSuccess = {
+                                            taskList[actualIndex] = taskList[actualIndex].copy(
+                                                date = if (taskItem.isEncrypted) decrypt(taskItem.date) else crypto(taskItem.date),
+                                                task = if (taskItem.isEncrypted) decrypt(taskItem.task) else crypto(taskItem.task),
+                                                isEncrypted = !taskItem.isEncrypted
+                                            )
+                                        },
+                                        onError = {
+                                            Toast.makeText(context, "Biometric authentication failed.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                },
+                            tint = if(taskItem.isEncrypted) MaterialTheme.colorScheme.error else Color(0xFF4CAF50)
                         )
                     }
                 }
