@@ -333,7 +333,6 @@ fun ToDoLayout() {
         Spacer(modifier = Modifier.height(16.dp))
 
         if(filteredTasks.isNotEmpty()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
                 Button(onClick = {
 
                     authenticateBiometric(
@@ -341,8 +340,8 @@ fun ToDoLayout() {
                         onSuccess = {
                             taskList.replaceAll { task ->
                                 task.copy(
-                                    date = decrypt(task.date),
-                                    task = decrypt(task.task)
+                                    date = if (task.isEncrypted) decrypt(task.date) else crypto(task.date),
+                                    task = if (task.isEncrypted) decrypt(task.task) else crypto(task.task),
                                 )
                             }
                         },
@@ -351,27 +350,9 @@ fun ToDoLayout() {
                         }
                     )
                 }) {
-                    Text(stringResource(R.string.decrypt_button))
+                    Text(if (taskList.listIterator().next().isEncrypted) stringResource(R.string.decrypt_button) else stringResource(R.string.crypt_button))
                 }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Button(onClick = {
-                    taskList.replaceAll { task ->
-                        task.copy(
-                            date = crypto(task.date),
-                            task = crypto(task.task)
-                        )
-                    }
-                }) {
-                    Text(stringResource(R.string.crypt_button))
-                }
-
-
-            }
-
         }
-
     }
 }
 
