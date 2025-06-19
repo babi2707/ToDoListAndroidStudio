@@ -1,13 +1,10 @@
 package com.example.todolist
 
 import android.app.DatePickerDialog
-import android.content.Context
-import android.content.ContextWrapper
 import android.os.Bundle
-import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,26 +50,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.FilterChip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import java.util.Calendar
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
-import java.security.KeyStore
-import javax.crypto.spec.IvParameterSpec
-import android.util.Base64
-import androidx.compose.material.icons.filled.Lock
 
-class MainActivity : FragmentActivity() {
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -93,14 +83,14 @@ enum class FilterType {
 }
 
 data class TaskItem(
-    var date: String,
-    var task: String,
+    val date: String,
+    val task: String,
     var isDone: Boolean = false,
     var isEncrypted: Boolean = true
 )
 
+var aesKey: SecretKey? = null
 val ivMap = mutableMapOf<String, ByteArray>()
-private const val KEY_ALIAS = "my_aes_key_alias"
 
 @Composable
 fun ToDoLayout() {
@@ -118,8 +108,6 @@ fun ToDoLayout() {
             FilterType.COMPLETED -> taskList.filter { it.isDone }
         }
     }
-
-    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -309,18 +297,10 @@ fun ToDoLayout() {
                             modifier = Modifier
                                 .size(24.dp)
                                 .clickable {
-                                    authenticateBiometric(
-                                        context = context,
-                                        onSuccess = {
-                                            taskList[actualIndex] = taskList[actualIndex].copy(
-                                                date = if (taskItem.isEncrypted) decrypt(taskItem.date) else crypto(taskItem.date),
-                                                task = if (taskItem.isEncrypted) decrypt(taskItem.task) else crypto(taskItem.task),
-                                                isEncrypted = !taskItem.isEncrypted
-                                            )
-                                        },
-                                        onError = {
-                                            Toast.makeText(context, "Biometric authentication failed.", Toast.LENGTH_SHORT).show()
-                                        }
+                                    taskList[actualIndex] = taskList[actualIndex].copy(
+                                        date = if (taskItem.isEncrypted) decrypt(taskItem.date) else crypto(taskItem.date),
+                                        task = if (taskItem.isEncrypted) decrypt(taskItem.task) else crypto(taskItem.task),
+                                        isEncrypted = !taskItem.isEncrypted
                                     )
                                 },
                             tint = if(taskItem.isEncrypted) MaterialTheme.colorScheme.error else Color(0xFF4CAF50)
@@ -332,27 +312,20 @@ fun ToDoLayout() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if(filteredTasks.isNotEmpty()) {
-                Button(onClick = {
-
-                    authenticateBiometric(
-                        context = context,
-                        onSuccess = {
-                            taskList.replaceAll { task ->
-                                task.copy(
-                                    date = if (task.isEncrypted) decrypt(task.date) else crypto(task.date),
-                                    task = if (task.isEncrypted) decrypt(task.task) else crypto(task.task),
-                                )
-                            }
-                        },
-                        onError = {
-                            Toast.makeText(context, "Biometric authentication failed.", Toast.LENGTH_SHORT).show()
-                        }
+        if(filteredTasks.isNotEmpty() && (taskList.all { it.isEncrypted } || taskList.all { !it.isEncrypted })) {
+            Button(onClick = {
+                taskList.replaceAll { task ->
+                    task.copy(
+                        date = if(task.isEncrypted) decrypt(task.date) else crypto(task.date),
+                        task = if(task.isEncrypted) decrypt(task.task) else crypto(task.task),
+                        isEncrypted = !task.isEncrypted
                     )
-                }) {
-                    Text(if (taskList.listIterator().next().isEncrypted) stringResource(R.string.decrypt_button) else stringResource(R.string.crypt_button))
                 }
+            }) {
+                Text(if (taskList.all { it.isEncrypted }) stringResource(R.string.decrypt_button) else stringResource(R.string.crypt_button))
+            }
         }
+
     }
 }
 
@@ -438,6 +411,7 @@ object DateOffsetMapper : OffsetMapping {
     }
 }
 
+
 @Composable
 fun EditTaskField(
     value: String,
@@ -455,111 +429,37 @@ fun EditTaskField(
 }
 
 // cryptography
-fun getKey(): SecretKey {
-    val keyStore: KeyStore = KeyStore.getInstance("AndroidKeyStore").apply {
-        load(null)
-    }
-
-    val key = keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
-    if (key != null) {
-        return key.secretKey
-    }
-
-    val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-    keyGenerator.init(
-        KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .build()
-    )
-
-    return keyGenerator.generateKey()
-}
-
 fun crypto(text: String): String {
-    val plaintext = text.toByteArray()
+    val plaintext: ByteArray = text.toByteArray()
 
-    val key = getKey()
+    if (aesKey == null) {
+        val keygen = KeyGenerator.getInstance("AES")
+        keygen.init(256)
+        aesKey = keygen.generateKey()
+    }
 
-    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-    cipher.init(Cipher.ENCRYPT_MODE, key)
+    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
+    cipher.init(Cipher.ENCRYPT_MODE, aesKey)
+    val ciphertext: ByteArray = cipher.doFinal(plaintext)
+    val iv: ByteArray = cipher.iv
 
-    val ciphertext = cipher.doFinal(plaintext)
-    val iv = cipher.iv
+    val encoded = android.util.Base64.encodeToString(ciphertext, android.util.Base64.DEFAULT)
+    ivMap[encoded] = iv
 
-    val encodedCiphertext = Base64.encodeToString(ciphertext, Base64.DEFAULT)
-    val encodedIv = Base64.encodeToString(iv, Base64.DEFAULT)
-
-    ivMap[encodedCiphertext] = iv
-
-    return "$encodedIv:$encodedCiphertext"
+    return encoded
 }
 
 fun decrypt(encoded: String): String {
-    val key = getKey()
-
-    val parts = encoded.split(":")
-    val iv = Base64.decode(parts[0], Base64.DEFAULT)
-    val ciphertext = Base64.decode(parts[1], Base64.DEFAULT)
-
-    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-    val ivSpec = IvParameterSpec(iv)
+    val key = aesKey ?: return encoded
+    val iv = ivMap[encoded] ?: return encoded
+    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
+    val ivSpec = javax.crypto.spec.IvParameterSpec(iv)
     cipher.init(Cipher.DECRYPT_MODE, key, ivSpec)
-
-    val decryptedBytes = cipher.doFinal(ciphertext)
+    val decryptedBytes = cipher.doFinal(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT))
     return String(decryptedBytes)
 }
 
-// biometric
-fun authenticateBiometric(context: Context, onSuccess: () -> Unit, onError: () -> Unit) {
-    val activity = context.findFragmentActivity()
-    if (activity == null) {
-        onError()
-        return
-    }
 
-    val executor = ContextCompat.getMainExecutor(context)
-
-    val biometricPrompt = BiometricPrompt(
-        activity,
-        executor,
-        object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                super.onAuthenticationSucceeded(result)
-                onSuccess()
-            }
-
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                super.onAuthenticationError(errorCode, errString)
-                onError()
-            }
-
-            override fun onAuthenticationFailed() {
-                super.onAuthenticationFailed()
-                onError()
-            }
-        }
-    )
-
-    val promptInfo = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Biometric Authentication")
-        .setSubtitle("Use your fingerprint or face ID to unlock the tasks")
-        .setNegativeButtonText("Cancel")
-        .build()
-
-    biometricPrompt.authenticate(promptInfo)
-}
-
-fun Context.findFragmentActivity(): FragmentActivity? {
-    var currentContext = this
-    while (currentContext is ContextWrapper) {
-        if (currentContext is FragmentActivity) {
-            return currentContext
-        }
-        currentContext = currentContext.baseContext
-    }
-    return null
-}
 
 @Preview(showBackground = true)
 @Composable
