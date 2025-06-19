@@ -20,14 +20,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,28 +44,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.todolist.ui.theme.ToDoListTheme
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Icon
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.FilterChip
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
 import java.util.Calendar
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -86,20 +86,42 @@ data class TaskItem(
     val date: String,
     val task: String,
     var isDone: Boolean = false,
-    var isEncrypted: Boolean = true
+    var isEncrypted: Boolean = true,
+    val dateIv: String? = null,
+    val taskIv: String? = null
 )
 
+data class EncryptedData(val ciphertext: String, val iv: String)
+
 var aesKey: SecretKey? = null
-val ivMap = mutableMapOf<String, ByteArray>()
 
 @Composable
 fun ToDoLayout() {
+    val context = LocalContext.current
+    val dbHelper = remember { DatabaseHelper(context) }
+
     var dateInput by remember { mutableStateOf("") }
     var taskInput by remember { mutableStateOf("") }
     var isDateValid by remember { mutableStateOf(true) }
     var selectedFilter by remember { mutableStateOf(FilterType.ALL) }
 
     val taskList = remember { mutableStateListOf<TaskItem>() }
+
+    LaunchedEffect(Unit) {
+        val tasksFromDb = dbHelper.getAllTasks()
+
+        val decryptedTasks = tasksFromDb.map { task ->
+            task.copy(
+                date = decrypt(task.date, task.dateIv),
+                task = decrypt(task.task, task.taskIv),
+                isEncrypted = false
+            )
+        }
+
+        taskList.clear()
+        taskList.addAll(decryptedTasks)
+    }
+
 
     val filteredTasks = remember(taskList, selectedFilter) {
         when (selectedFilter) {
@@ -156,7 +178,19 @@ fun ToDoLayout() {
         Button(onClick = {
             if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
                 isDateValid = true
-                taskList.add(TaskItem(crypto(dateInput), crypto(taskInput), isEncrypted = true))
+                taskList.add(TaskItem(dateInput, taskInput, isEncrypted = false))
+                val dateEncrypted = crypto(dateInput)
+                val taskEncrypted = crypto(taskInput)
+                val newTask = TaskItem(
+                    date = dateEncrypted.ciphertext,
+                    task = taskEncrypted.ciphertext,
+                    isEncrypted = true,
+                    dateIv = dateEncrypted.iv,
+                    taskIv = taskEncrypted.iv
+                )
+
+                dbHelper.addTask(newTask)
+
                 dateInput = ""
                 taskInput = ""
             }
@@ -210,15 +244,22 @@ fun ToDoLayout() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
-                            .background(color = Color.hsl(300f, 0.4f, 0.75f), shape = MaterialTheme.shapes.medium)
+                            .background(
+                                color = Color.hsl(300f, 0.4f, 0.75f),
+                                shape = MaterialTheme.shapes.medium
+                            )
                             .padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier
+                                .size(24.dp)
                                 .clip(CircleShape)
                                 .clickable {
-                                    taskList[actualIndex] = taskList[actualIndex].copy(isDone = !taskList[actualIndex].isDone)
+                                    val updatedTask =
+                                        taskList[actualIndex].copy(isDone = !taskList[actualIndex].isDone)
+                                    taskList[actualIndex] = updatedTask
+                                    dbHelper.updateTask(taskItem, updatedTask)
                                 },
                             color = if (taskItem.isDone) Color.hsl(120f, 0.4f, 0.55f) else Color.LightGray,
                             contentColor = Color.White,
@@ -284,48 +325,15 @@ fun ToDoLayout() {
                             modifier = Modifier
                                 .size(24.dp)
                                 .clickable {
+                                    dbHelper.deleteTask(taskList[actualIndex])
                                     taskList.removeAt(actualIndex)
                                 },
                             tint = MaterialTheme.colorScheme.error
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = if (taskItem.isEncrypted) "Decrypt task" else "Encrypt task",
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clickable {
-                                    taskList[actualIndex] = taskList[actualIndex].copy(
-                                        date = if (taskItem.isEncrypted) decrypt(taskItem.date) else crypto(taskItem.date),
-                                        task = if (taskItem.isEncrypted) decrypt(taskItem.task) else crypto(taskItem.task),
-                                        isEncrypted = !taskItem.isEncrypted
-                                    )
-                                },
-                            tint = if(taskItem.isEncrypted) MaterialTheme.colorScheme.error else Color(0xFF4CAF50)
                         )
                     }
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if(filteredTasks.isNotEmpty() && (taskList.all { it.isEncrypted } || taskList.all { !it.isEncrypted })) {
-            Button(onClick = {
-                taskList.replaceAll { task ->
-                    task.copy(
-                        date = if(task.isEncrypted) decrypt(task.date) else crypto(task.date),
-                        task = if(task.isEncrypted) decrypt(task.task) else crypto(task.task),
-                        isEncrypted = !task.isEncrypted
-                    )
-                }
-            }) {
-                Text(if (taskList.all { it.isEncrypted }) stringResource(R.string.decrypt_button) else stringResource(R.string.crypt_button))
-            }
-        }
-
     }
 }
 
@@ -429,8 +437,8 @@ fun EditTaskField(
 }
 
 // cryptography
-fun crypto(text: String): String {
-    val plaintext: ByteArray = text.toByteArray()
+fun crypto(text: String): EncryptedData {
+    if (text.isEmpty()) return EncryptedData("", "")
 
     if (aesKey == null) {
         val keygen = KeyGenerator.getInstance("AES")
@@ -440,23 +448,24 @@ fun crypto(text: String): String {
 
     val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
     cipher.init(Cipher.ENCRYPT_MODE, aesKey)
-    val ciphertext: ByteArray = cipher.doFinal(plaintext)
-    val iv: ByteArray = cipher.iv
+    val ciphertext = cipher.doFinal(text.toByteArray())
+    val iv = cipher.iv
 
-    val encoded = android.util.Base64.encodeToString(ciphertext, android.util.Base64.DEFAULT)
-    ivMap[encoded] = iv
-
-    return encoded
+    return EncryptedData(
+        ciphertext = android.util.Base64.encodeToString(ciphertext, android.util.Base64.DEFAULT),
+        iv = android.util.Base64.encodeToString(iv, android.util.Base64.DEFAULT)
+    )
 }
 
-fun decrypt(encoded: String): String {
+fun decrypt(encoded: String, ivString: String?): String {
+    if (encoded.isEmpty() || ivString == null) return encoded
     val key = aesKey ?: return encoded
-    val iv = ivMap[encoded] ?: return encoded
+    val iv = android.util.Base64.decode(ivString, android.util.Base64.DEFAULT)
     val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
-    val ivSpec = javax.crypto.spec.IvParameterSpec(iv)
-    cipher.init(Cipher.DECRYPT_MODE, key, ivSpec)
-    val decryptedBytes = cipher.doFinal(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT))
-    return String(decryptedBytes)
+    cipher.init(Cipher.DECRYPT_MODE, key, javax.crypto.spec.IvParameterSpec(iv))
+    val decrypted = cipher.doFinal(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT))
+
+    return String(decrypted)
 }
 
 
