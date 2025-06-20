@@ -61,6 +61,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         if (cursor.moveToFirst()) {
             do {
                 val task = TaskItem(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID)),
                     date = cursor.getString(cursor.getColumnIndexOrThrow(KEY_DATE)),
                     task = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TASK)),
                     isDone = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_IS_DONE)) == 1,
@@ -76,22 +77,22 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         return taskList
     }
 
-    fun updateTask(oldTask: TaskItem, newTask: TaskItem): Int {
+    fun updateTask(task: TaskItem): Int {
         val db = this.writableDatabase
         val values = ContentValues().apply {
-            put(KEY_DATE, newTask.date)
-            put(KEY_TASK, newTask.task)
-            put(KEY_IS_DONE, if (newTask.isDone) 1 else 0)
-            put(KEY_IS_ENCRYPTED, if (newTask.isEncrypted) 1 else 0)
-            put(KEY_DATE_IV, newTask.dateIv)
-            put(KEY_TASK_IV, newTask.taskIv)
+            put(KEY_DATE, task.date)
+            put(KEY_TASK, task.task)
+            put(KEY_IS_DONE, if (task.isDone) 1 else 0)
+            put(KEY_IS_ENCRYPTED, if (task.isEncrypted) 1 else 0)
+            put(KEY_DATE_IV, task.dateIv)
+            put(KEY_TASK_IV, task.taskIv)
         }
 
         val rowsAffected = db.update(
             TABLE_TASKS,
             values,
-            "$KEY_DATE = ? AND $KEY_TASK = ? AND $KEY_IS_DONE = ?",
-            arrayOf(oldTask.date, oldTask.task, if (oldTask.isDone) "1" else "0")
+            "$KEY_ID = ?",
+            arrayOf(task.id.toString())
         )
         db.close()
         return rowsAffected

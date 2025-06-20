@@ -82,12 +82,13 @@ enum class FilterType {
 }
 
 data class TaskItem(
+    val id: Long = -1,
     val date: String,
     val task: String,
-    var isDone: Boolean = false,
-    var isEncrypted: Boolean = true,
-    val dateIv: String? = null,
-    val taskIv: String? = null
+    val isDone: Boolean,
+    val isEncrypted: Boolean,
+    val dateIv: String?,
+    val taskIv: String?
 )
 
 data class EncryptedData(val ciphertext: String, val iv: String)
@@ -177,13 +178,23 @@ fun ToDoLayout() {
         Button(onClick = {
             if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
                 isDateValid = true
-                taskList.add(TaskItem(dateInput, taskInput, isEncrypted = false))
+                taskList.add(
+                    TaskItem(
+                        date = dateInput,
+                        task = taskInput,
+                        isDone = false,
+                        isEncrypted = false,
+                        dateIv = null,
+                        taskIv = null
+                    )
+                )
                 val dateEncrypted = crypto(dateInput, aesKey)
                 val taskEncrypted = crypto(taskInput, aesKey)
                 val newTask = TaskItem(
                     date = dateEncrypted.ciphertext,
                     task = taskEncrypted.ciphertext,
                     isEncrypted = true,
+                    isDone = false,
                     dateIv = dateEncrypted.iv,
                     taskIv = taskEncrypted.iv
                 )
@@ -255,10 +266,9 @@ fun ToDoLayout() {
                                 .size(24.dp)
                                 .clip(CircleShape)
                                 .clickable {
-                                    val updatedTask =
-                                        taskList[actualIndex].copy(isDone = !taskList[actualIndex].isDone)
+                                    val updatedTask = taskList[actualIndex].copy(isDone = !taskList[actualIndex].isDone)
                                     taskList[actualIndex] = updatedTask
-                                    dbHelper.updateTask(taskItem, updatedTask)
+                                    dbHelper.updateTask(updatedTask)
                                 },
                             color = if (taskItem.isDone) Color.hsl(120f, 0.4f, 0.55f) else Color.LightGray,
                             contentColor = Color.White,
@@ -341,7 +351,7 @@ fun ToDoLayout() {
                         Button(onClick = {
                             val updatedTasks = taskList.map { task ->
                                 task.copy(isDone = true).also { updatedTask ->
-                                    dbHelper.updateTask(task, updatedTask)
+                                    dbHelper.updateTask(updatedTask)
                                 }
                             }
                             taskList.clear()
