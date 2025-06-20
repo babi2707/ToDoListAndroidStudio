@@ -257,9 +257,12 @@ fun ToDoLayout() {
                                 .size(24.dp)
                                 .clip(CircleShape)
                                 .clickable {
-                                    val updatedTask = taskList[actualIndex].copy(isDone = !taskList[actualIndex].isDone)
-                                    taskList[actualIndex] = updatedTask
-                                    dbHelper.updateTask(updatedTask)
+                                    val updatedTask =
+                                        dbHelper.getTaskById(taskList[actualIndex].id)?.copy(isDone = !taskList[actualIndex].isDone)
+                                    if (updatedTask != null) {
+                                        taskList[actualIndex] = updatedTask.copy(task = decrypt(updatedTask.task, updatedTask.taskIv, aesKey), date = decrypt(updatedTask.date, updatedTask.dateIv, aesKey))
+                                        dbHelper.updateTask(updatedTask)
+                                    }
                                 },
                             color = if (taskItem.isDone) Color.hsl(120f, 0.4f, 0.55f) else Color.LightGray,
                             contentColor = Color.White,
@@ -340,13 +343,13 @@ fun ToDoLayout() {
                 Row(verticalAlignment = Alignment.CenterVertically){
                     if(!taskList.all { it.isDone }){
                         Button(onClick = {
-                            val updatedTasks = taskList.map { task ->
+                            val updatedTasks = dbHelper.getAllTasks().map { task ->
                                 task.copy(isDone = true).also { updatedTask ->
                                     dbHelper.updateTask(updatedTask)
                                 }
                             }
                             taskList.clear()
-                            taskList.addAll(updatedTasks)
+                            updatedTasks.forEach { task -> taskList.add(task.copy(task = decrypt(task.task, task.taskIv, aesKey), date = decrypt(task.date, task.dateIv, aesKey))) }
                         }) {
                             Text(stringResource(R.string.complete_button))
                         }

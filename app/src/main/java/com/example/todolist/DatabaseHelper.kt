@@ -77,6 +77,28 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         return taskList
     }
 
+    fun getTaskById(id: Long): TaskItem? {
+        val selectQuery = "SELECT * FROM $TABLE_TASKS WHERE $KEY_ID = ?"
+        val db = this.readableDatabase
+        val cursor = db.rawQuery(selectQuery, arrayOf(id.toString()))
+        var task: TaskItem? = null
+
+        if (cursor.moveToFirst()) {
+            task = TaskItem(
+                id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID)),
+                date = cursor.getString(cursor.getColumnIndexOrThrow(KEY_DATE)),
+                task = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TASK)),
+                isDone = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_IS_DONE)) == 1,
+                isEncrypted = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_IS_ENCRYPTED)) == 1,
+                dateIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_DATE_IV)),
+                taskIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TASK_IV))
+            )
+        }
+        cursor.close()
+        db.close()
+        return task
+    }
+
     fun updateTask(task: TaskItem): Int {
         val db = this.writableDatabase
         val values = ContentValues().apply {
