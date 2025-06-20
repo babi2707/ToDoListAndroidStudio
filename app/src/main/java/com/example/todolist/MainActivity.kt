@@ -178,16 +178,6 @@ fun ToDoLayout() {
         Button(onClick = {
             if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
                 isDateValid = true
-                taskList.add(
-                    TaskItem(
-                        date = dateInput,
-                        task = taskInput,
-                        isDone = false,
-                        isEncrypted = false,
-                        dateIv = null,
-                        taskIv = null
-                    )
-                )
                 val dateEncrypted = crypto(dateInput, aesKey)
                 val taskEncrypted = crypto(taskInput, aesKey)
                 val newTask = TaskItem(
@@ -200,6 +190,7 @@ fun ToDoLayout() {
                 )
 
                 dbHelper.addTask(newTask)
+                taskList.add(newTask.copy(date = decrypt(dateEncrypted.ciphertext, dateEncrypted.iv, aesKey), task = decrypt(taskEncrypted.ciphertext, taskEncrypted.iv, aesKey)))
 
                 dateInput = ""
                 taskInput = ""
