@@ -90,8 +90,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         val rowsAffected = db.update(
             TABLE_TASKS,
             values,
-            "$KEY_DATE = ? AND $KEY_TASK = ?",
-            arrayOf(oldTask.date, oldTask.task)
+            "$KEY_DATE = ? AND $KEY_TASK = ? AND $KEY_IS_DONE = ?",
+            arrayOf(oldTask.date, oldTask.task, if (oldTask.isDone) "1" else "0")
         )
         db.close()
         return rowsAffected

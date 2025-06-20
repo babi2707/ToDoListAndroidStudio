@@ -112,6 +112,7 @@ fun ToDoLayout() {
             task.copy(
                 date = decrypt(task.date, task.dateIv, aesKey),
                 task = decrypt(task.task, task.taskIv, aesKey),
+                isDone = task.isDone,
                 isEncrypted = false
             )
         }
@@ -328,6 +329,35 @@ fun ToDoLayout() {
                                 },
                             tint = MaterialTheme.colorScheme.error
                         )
+                    }
+                }
+            }
+
+            if(taskList.size > 1) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically){
+                    if(!taskList.all { it.isDone }){
+                        Button(onClick = {
+                            val updatedTasks = taskList.map { task ->
+                                task.copy(isDone = true).also { updatedTask ->
+                                    dbHelper.updateTask(task, updatedTask)
+                                }
+                            }
+                            taskList.clear()
+                            taskList.addAll(updatedTasks)
+                        }) {
+                            Text(stringResource(R.string.complete_button))
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+
+                    Button(onClick = {
+                        dbHelper.deleteAllTasks()
+                        taskList.clear()
+                    }) {
+                        Text(stringResource(R.string.delete_button))
                     }
                 }
             }

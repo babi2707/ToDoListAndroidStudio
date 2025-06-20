@@ -5,6 +5,6 @@
     <string name="add_task">Task</string>
     <string name="add_task_label">Add a Task</string>
     <string name="add_button">Add</string>
-    <string name="decrypt_button">Decrypt All</string>
-    <string name="crypt_button">Encrypt All</string>
+    <string name="delete_button">Delete all</string>
+    <string name="complete_button">Complete all</string>
 </resources>
