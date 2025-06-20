@@ -59,7 +59,6 @@ import androidx.compose.ui.unit.sp
 import com.example.todolist.ui.theme.ToDoListTheme
 import java.util.Calendar
 import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 
 class MainActivity : ComponentActivity() {
@@ -93,12 +92,11 @@ data class TaskItem(
 
 data class EncryptedData(val ciphertext: String, val iv: String)
 
-var aesKey: SecretKey? = null
-
 @Composable
 fun ToDoLayout() {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
+    val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
 
     var dateInput by remember { mutableStateOf("") }
     var taskInput by remember { mutableStateOf("") }
@@ -112,8 +110,8 @@ fun ToDoLayout() {
 
         val decryptedTasks = tasksFromDb.map { task ->
             task.copy(
-                date = decrypt(task.date, task.dateIv),
-                task = decrypt(task.task, task.taskIv),
+                date = decrypt(task.date, task.dateIv, aesKey),
+                task = decrypt(task.task, task.taskIv, aesKey),
                 isEncrypted = false
             )
         }
@@ -179,8 +177,8 @@ fun ToDoLayout() {
             if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
                 isDateValid = true
                 taskList.add(TaskItem(dateInput, taskInput, isEncrypted = false))
-                val dateEncrypted = crypto(dateInput)
-                val taskEncrypted = crypto(taskInput)
+                val dateEncrypted = crypto(dateInput, aesKey)
+                val taskEncrypted = crypto(taskInput, aesKey)
                 val newTask = TaskItem(
                     date = dateEncrypted.ciphertext,
                     task = taskEncrypted.ciphertext,
@@ -437,14 +435,8 @@ fun EditTaskField(
 }
 
 // cryptography
-fun crypto(text: String): EncryptedData {
+fun crypto(text: String, aesKey: SecretKey): EncryptedData {
     if (text.isEmpty()) return EncryptedData("", "")
-
-    if (aesKey == null) {
-        val keygen = KeyGenerator.getInstance("AES")
-        keygen.init(256)
-        aesKey = keygen.generateKey()
-    }
 
     val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
     cipher.init(Cipher.ENCRYPT_MODE, aesKey)
@@ -457,15 +449,18 @@ fun crypto(text: String): EncryptedData {
     )
 }
 
-fun decrypt(encoded: String, ivString: String?): String {
+fun decrypt(encoded: String, ivString: String?, aesKey: SecretKey): String {
     if (encoded.isEmpty() || ivString == null) return encoded
-    val key = aesKey ?: return encoded
-    val iv = android.util.Base64.decode(ivString, android.util.Base64.DEFAULT)
-    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
-    cipher.init(Cipher.DECRYPT_MODE, key, javax.crypto.spec.IvParameterSpec(iv))
-    val decrypted = cipher.doFinal(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT))
-
-    return String(decrypted)
+    try {
+        val iv = android.util.Base64.decode(ivString, android.util.Base64.DEFAULT)
+        val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
+        cipher.init(Cipher.DECRYPT_MODE, aesKey, javax.crypto.spec.IvParameterSpec(iv))
+        val decrypted = cipher.doFinal(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT))
+        return String(decrypted)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return encoded
+    }
 }
 
 
