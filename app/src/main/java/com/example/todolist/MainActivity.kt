@@ -114,6 +114,15 @@ data class TaskItem(
     val taskIv: String?
 )
 
+data class RegisterItem(
+    val id: Long = -1,
+    val name: String,
+    val username: String,
+    val email: String,
+    val password: String,
+    val passwordIv: String?
+)
+
 data class EncryptedData(val ciphertext: String, val iv: String)
 
 
@@ -121,8 +130,13 @@ data class EncryptedData(val ciphertext: String, val iv: String)
 // ********** screens **********
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
+    val context = LocalContext.current
+    val dbHelper = remember { DatabaseHelper(context) }
+    val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
+
     var userInput by remember { mutableStateOf("") }
     var passwordInput by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -175,10 +189,28 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
                 .fillMaxWidth()
         )
 
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                color = Color.Red,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
         Spacer(modifier = Modifier.height(5.dp))
 
         Button(onClick = {
-            onLoginSuccess()
+            val user = dbHelper.getUser(userInput, passwordInput)
+            if (user == null) {
+                errorMessage = "User not found"
+            } else {
+                val decryptedPassword = decrypt(user.password, user.passwordIv, aesKey)
+                if (user.username == userInput && decryptedPassword == passwordInput) {
+                    onLoginSuccess()
+                } else {
+                    errorMessage = "Invalid username or password"
+                }
+            }
         }) {
             Text(stringResource(R.string.login_button))
         }
@@ -199,10 +231,15 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
 
 @Composable
 fun RegisterScreen(onRegisterSuccess: () -> Unit) {
+    val context = LocalContext.current
+    val dbHelper = remember { DatabaseHelper(context) }
+    val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
+
     var nameInput by remember { mutableStateOf("") }
     var emailInput by remember { mutableStateOf("") }
     var userInput by remember { mutableStateOf("") }
     var passwordInput by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -291,8 +328,32 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit) {
 
         Spacer(modifier = Modifier.height(5.dp))
 
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                color = Color.Red,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
         Button(onClick = {
-            onRegisterSuccess()
+            if(nameInput.isBlank() || emailInput.isBlank() ||
+                userInput.isBlank() || passwordInput.isBlank()){
+                errorMessage = "Please fill in all fields"
+            } else if(dbHelper.checkUserExists(userInput)){
+                errorMessage = "Username already exists"
+            } else {
+                val encryptedPassword = crypto(passwordInput, aesKey)
+                val newUser = RegisterItem(
+                    name = nameInput,
+                    username = userInput,
+                    email = emailInput,
+                    password = encryptedPassword.ciphertext,
+                    passwordIv = encryptedPassword.iv
+                )
+                dbHelper.addUser(newUser)
+                onRegisterSuccess()
+            }
         }) {
             Text(stringResource(R.string.register_button))
         }
