@@ -10,7 +10,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     companion object {
         // database
         private const val DATABASE_NAME = "todo.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
 
         // registers
         private const val TABLE_REGISTERS = "registers"
@@ -48,8 +48,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 + "$KEY_NAME TEXT,"
                 + "$KEY_USERNAME TEXT,"
                 + "$KEY_EMAIL TEXT UNIQUE,"
-                + "$KEY_PASSWORD TEXT UNIQUE,"
-                + "$KEY_PASSWORD_IV TEXT")
+                + "$KEY_PASSWORD TEXT,"
+                + "$KEY_PASSWORD_IV TEXT)")
         db.execSQL(createTableRegisters)
     }
 
@@ -62,16 +62,20 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     // ********** registers **********
     fun addUser(user: RegisterItem): Long {
         val db = this.writableDatabase
-        val values = ContentValues().apply {
-            put(KEY_NAME, user.name)
-            put(KEY_USERNAME, user.username)
-            put(KEY_EMAIL, user.email)
-            put(KEY_PASSWORD, user.password)
-            put(KEY_PASSWORD_IV, user.passwordIv)
+        return try {
+            val values = ContentValues().apply {
+                put(KEY_NAME, user.name)
+                put(KEY_USERNAME, user.username)
+                put(KEY_EMAIL, user.email)
+                put(KEY_PASSWORD, user.password)
+                put(KEY_PASSWORD_IV, user.passwordIv)
+            }
+            db.insert(TABLE_REGISTERS, null, values)
+        } catch (e: Exception) {
+            -1
+        } finally {
+            db.close()
         }
-        val id = db.insert(TABLE_REGISTERS, null, values)
-        db.close()
-        return id
     }
 
     fun getAllUsers(): List<RegisterItem> {
@@ -98,15 +102,27 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         return usersList
     }
 
-    fun getUser(username: String, password: String): RegisterItem? {
+    fun getPasswordByUsername(username: String): PasswordItem? {
+        val selectQuery = "SELECT $KEY_PASSWORD, $KEY_PASSWORD_IV FROM $TABLE_REGISTERS WHERE $KEY_USERNAME = ?"
         val db = this.readableDatabase
-        val cursor = db.query(
-            TABLE_REGISTERS,
-            arrayOf(KEY_ID_USER, KEY_NAME, KEY_USERNAME, KEY_EMAIL, KEY_PASSWORD, KEY_PASSWORD_IV),
-            "$KEY_USERNAME = ? AND $KEY_PASSWORD = ?",
-            arrayOf(username, password),
-            null, null, null
-        )
+        val cursor = db.rawQuery(selectQuery, arrayOf(username))
+        var password: PasswordItem? = null
+
+        if (cursor.moveToFirst()) {
+            password = PasswordItem(
+                password = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD)),
+                passwordIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD_IV))
+            )
+        }
+        cursor.close()
+        db.close()
+        return password
+    }
+
+    fun getUser(username: String, password: String): RegisterItem? {
+        val selectQuery = "SELECT * FROM $TABLE_REGISTERS WHERE $KEY_USERNAME = ? AND $KEY_PASSWORD = ?"
+        val db = this.readableDatabase
+        val cursor = db.rawQuery(selectQuery, arrayOf(username, password))
         var user: RegisterItem? = null
 
         if (cursor.moveToFirst()) {

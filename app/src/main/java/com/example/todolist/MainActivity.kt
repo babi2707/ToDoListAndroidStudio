@@ -61,6 +61,7 @@ import java.util.Calendar
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
 import androidx.compose.ui.res.painterResource
+import javax.crypto.spec.IvParameterSpec
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,7 +80,8 @@ class MainActivity : ComponentActivity() {
                             onRegister = { currentScreen = Screen.Register }
                         )
                         Screen.Register -> RegisterScreen(
-                            onRegisterSuccess = { currentScreen = Screen.TodoList }
+                            onRegisterSuccess = { currentScreen = Screen.TodoList },
+                            onLogout = { currentScreen = Screen.Login }
                         )
                         Screen.TodoList -> ToDoLayout(
                             onLogout = { currentScreen = Screen.Login }
@@ -119,6 +121,11 @@ data class RegisterItem(
     val name: String,
     val username: String,
     val email: String,
+    val password: String,
+    val passwordIv: String?
+)
+
+data class PasswordItem(
     val password: String,
     val passwordIv: String?
 )
@@ -189,6 +196,8 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
                 .fillMaxWidth()
         )
 
+        Spacer(modifier = Modifier.height(5.dp))
+
         if (errorMessage != null) {
             Text(
                 text = errorMessage!!,
@@ -197,19 +206,19 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
             )
         }
 
-        Spacer(modifier = Modifier.height(5.dp))
-
         Button(onClick = {
-            val user = dbHelper.getUser(userInput, passwordInput)
-            if (user == null) {
-                errorMessage = "User not found"
-            } else {
-                val decryptedPassword = decrypt(user.password, user.passwordIv, aesKey)
-                if (user.username == userInput && decryptedPassword == passwordInput) {
-                    onLoginSuccess()
+            val userPassword = dbHelper.getPasswordByUsername(userInput)
+
+            if(userPassword?.passwordIv != null){
+                val encryptedInputPassword = cryptoWithIv(userInput, userPassword.passwordIv.toByteArray(), aesKey)
+                val user = dbHelper.getUser(userInput, encryptedInputPassword)
+                if (user == null) {
+                    errorMessage = "User not found"
                 } else {
-                    errorMessage = "Invalid username or password"
+                    onLoginSuccess()
                 }
+            } else {
+                errorMessage = "Invalid username or password"
             }
         }) {
             Text(stringResource(R.string.login_button))
@@ -230,7 +239,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
 }
 
 @Composable
-fun RegisterScreen(onRegisterSuccess: () -> Unit) {
+fun RegisterScreen(onRegisterSuccess: () -> Unit, onLogout: () -> Unit) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
@@ -337,10 +346,9 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit) {
         }
 
         Button(onClick = {
-            if(nameInput.isBlank() || emailInput.isBlank() ||
-                userInput.isBlank() || passwordInput.isBlank()){
+            if(nameInput.isBlank() && emailInput.isBlank() && userInput.isBlank() && passwordInput.isBlank()) {
                 errorMessage = "Please fill in all fields"
-            } else if(dbHelper.checkUserExists(userInput)){
+            } else if(dbHelper.checkUserExists(userInput)) {
                 errorMessage = "Username already exists"
             } else {
                 val encryptedPassword = crypto(passwordInput, aesKey)
@@ -351,12 +359,28 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit) {
                     password = encryptedPassword.ciphertext,
                     passwordIv = encryptedPassword.iv
                 )
-                dbHelper.addUser(newUser)
-                onRegisterSuccess()
+                val result = dbHelper.addUser(newUser)
+                if (result != -1L) {
+                    onRegisterSuccess()
+                } else {
+                    errorMessage = "Failed to register user"
+                }
             }
         }) {
             Text(stringResource(R.string.register_button))
         }
+
+        Spacer(modifier = Modifier.height(5.dp))
+
+        Text(
+            text = stringResource(R.string.login_button),
+            modifier = Modifier
+                .padding(bottom = 16.dp, top = 40.dp)
+                .align(alignment = Alignment.Start)
+                .clickable {
+                    onLogout()
+                }
+        )
     }
 }
 
@@ -847,6 +871,18 @@ fun crypto(text: String, aesKey: SecretKey): EncryptedData {
     )
 }
 
+fun cryptoWithIv(text: String, iv: ByteArray, aesKey: SecretKey): String {
+    if (text.isEmpty()) return ""
+
+    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
+    val ivParameterSpec = IvParameterSpec(iv)
+    cipher.init(Cipher.ENCRYPT_MODE, aesKey, ivParameterSpec)
+
+    val ciphertext = cipher.doFinal(text.toByteArray(Charsets.UTF_8))
+
+    return android.util.Base64.encodeToString(ciphertext, android.util.Base64.DEFAULT)
+}
+
 fun decrypt(encoded: String, ivString: String?, aesKey: SecretKey): String {
     if (encoded.isEmpty() || ivString == null) return encoded
     try {
@@ -875,7 +911,8 @@ fun GreetingPreview() {
                 onRegister = { currentScreen = Screen.Register }
             )
             Screen.Register -> RegisterScreen(
-                onRegisterSuccess = { currentScreen = Screen.TodoList }
+                onRegisterSuccess = { currentScreen = Screen.TodoList },
+                onLogout = { currentScreen = Screen.Login }
             )
             Screen.TodoList -> ToDoLayout(
                 onLogout = { currentScreen = Screen.Login }
