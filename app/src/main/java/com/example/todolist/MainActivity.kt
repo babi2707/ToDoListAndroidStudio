@@ -60,8 +60,6 @@ import com.example.todolist.ui.theme.ToDoListTheme
 import java.util.Calendar
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.res.painterResource
 
 class MainActivity : ComponentActivity() {
@@ -215,10 +213,18 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Icon(
+            painter = painterResource(id = R.drawable.icon_png),
+            contentDescription = "ToDo Icon",
+            modifier = Modifier.size(150.dp)
+                .padding(top = 8.dp),
+            tint = Color.Unspecified,
+        )
+
         Text(
             text = stringResource(R.string.name_label),
             modifier = Modifier
-                .padding(bottom = 16.dp, top = 40.dp)
+                .padding(bottom = 16.dp, top = 8.dp)
                 .align(alignment = Alignment.Start)
         )
 
