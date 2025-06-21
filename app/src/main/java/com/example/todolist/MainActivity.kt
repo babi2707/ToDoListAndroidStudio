@@ -590,7 +590,9 @@ fun ToDoLayout(onLogout: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Bottom
     ) {
-        Button(onClick = {
+        Button(
+            modifier = Modifier.padding(bottom = 24.dp),
+            onClick = {
             onLogout()
         }) {
             Text(stringResource(R.string.logout_button))
