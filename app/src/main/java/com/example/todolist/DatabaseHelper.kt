@@ -8,8 +8,20 @@ import android.database.sqlite.SQLiteOpenHelper
 class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
+        // database
         private const val DATABASE_NAME = "todo.db"
         private const val DATABASE_VERSION = 1
+
+        // registers
+        private const val TABLE_REGISTERS = "registers"
+        private const val KEY_ID_USER = "idUser"
+        private const val KEY_NAME = "name"
+        private const val KEY_USERNAME = "username"
+        private const val KEY_EMAIL = "email"
+        private const val KEY_PASSWORD = "password"
+        private const val KEY_PASSWORD_IV = "passwordIv"
+
+        // tasks
         private const val TABLE_TASKS = "tasks"
         private const val KEY_ID = "id"
         private const val KEY_DATE = "date"
@@ -30,13 +42,104 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 + "$KEY_DATE_IV TEXT,"
                 + "$KEY_TASK_IV TEXT)")
         db.execSQL(createTable)
+
+        val createTableRegisters = ("CREATE TABLE $TABLE_REGISTERS("
+                + "$KEY_ID_USER INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "$KEY_NAME TEXT,"
+                + "$KEY_USERNAME TEXT,"
+                + "$KEY_EMAIL TEXT UNIQUE,"
+                + "$KEY_PASSWORD TEXT UNIQUE,"
+                + "$KEY_PASSWORD_IV TEXT")
+        db.execSQL(createTableRegisters)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS $TABLE_TASKS")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_REGISTERS")
         onCreate(db)
     }
 
+    // ********** registers **********
+    fun addUser(user: RegisterItem): Long {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(KEY_NAME, user.name)
+            put(KEY_USERNAME, user.username)
+            put(KEY_EMAIL, user.email)
+            put(KEY_PASSWORD, user.password)
+            put(KEY_PASSWORD_IV, user.passwordIv)
+        }
+        val id = db.insert(TABLE_REGISTERS, null, values)
+        db.close()
+        return id
+    }
+
+    fun getAllUsers(): List<RegisterItem> {
+        val usersList = mutableListOf<RegisterItem>()
+        val selectQuery = "SELECT * FROM $TABLE_REGISTERS"
+        val db = this.readableDatabase
+        val cursor = db.rawQuery(selectQuery, null)
+
+        if (cursor.moveToFirst()) {
+            do {
+                val user = RegisterItem(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID_USER)),
+                    name = cursor.getString(cursor.getColumnIndexOrThrow(KEY_NAME)),
+                    username = cursor.getString(cursor.getColumnIndexOrThrow(KEY_USERNAME)),
+                    email = cursor.getString(cursor.getColumnIndexOrThrow(KEY_EMAIL)),
+                    password = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD)),
+                    passwordIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD_IV))
+                )
+                usersList.add(user)
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        db.close()
+        return usersList
+    }
+
+    fun getUser(username: String, password: String): RegisterItem? {
+        val db = this.readableDatabase
+        val cursor = db.query(
+            TABLE_REGISTERS,
+            arrayOf(KEY_ID_USER, KEY_NAME, KEY_USERNAME, KEY_EMAIL, KEY_PASSWORD, KEY_PASSWORD_IV),
+            "$KEY_USERNAME = ? AND $KEY_PASSWORD = ?",
+            arrayOf(username, password),
+            null, null, null
+        )
+        var user: RegisterItem? = null
+
+        if (cursor.moveToFirst()) {
+            user = RegisterItem(
+                id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID_USER)),
+                name = cursor.getString(cursor.getColumnIndexOrThrow(KEY_NAME)),
+                username = cursor.getString(cursor.getColumnIndexOrThrow(KEY_USERNAME)),
+                email = cursor.getString(cursor.getColumnIndexOrThrow(KEY_EMAIL)),
+                password = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD)),
+                passwordIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD_IV))
+            )
+        }
+        cursor.close()
+        db.close()
+        return user
+    }
+
+    fun checkUserExists(username: String): Boolean {
+        val db = readableDatabase
+        val cursor = db.query(
+            TABLE_REGISTERS,
+            arrayOf(KEY_ID_USER),
+            "$KEY_USERNAME = ?",
+            arrayOf(username),
+            null, null, null
+        )
+
+        val exists = cursor.count > 0
+        cursor.close()
+        return exists
+    }
+
+    // ********** tasks **********
     fun addTask(task: TaskItem): Long {
         val db = this.writableDatabase
         val values = ContentValues().apply {
