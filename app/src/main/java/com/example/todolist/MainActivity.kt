@@ -66,15 +66,37 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
+
             ToDoListTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    ToDoLayout()
+                    when (currentScreen) {
+                        Screen.Login -> LoginScreen(
+                            onLoginSuccess = { currentScreen = Screen.TodoList },
+                            onRegister = { currentScreen = Screen.Register }
+                        )
+                        Screen.Register -> RegisterScreen(
+                            onRegisterSuccess = { currentScreen = Screen.TodoList }
+                        )
+                        Screen.TodoList -> ToDoLayout(
+                            onLogout = { currentScreen = Screen.Login }
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+
+
+// ********** classes **********
+sealed class Screen {
+    object Login : Screen()
+    object Register : Screen()
+    object TodoList : Screen()
 }
 
 enum class FilterType {
@@ -93,8 +115,184 @@ data class TaskItem(
 
 data class EncryptedData(val ciphertext: String, val iv: String)
 
+data class RegisterItem(
+    val id: Long = -1,
+    val name: String,
+    val email: String,
+    val password: String,
+    val isEncrypted: Boolean,
+    val passwordIv: String?
+)
+
+
+
+// ********** screens **********
 @Composable
-fun ToDoLayout() {
+fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
+    var userInput by remember { mutableStateOf("") }
+    var passwordInput by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .statusBarsPadding()
+            .padding(horizontal = 40.dp)
+            .verticalScroll(rememberScrollState())
+            .safeDrawingPadding(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = stringResource(R.string.user_label),
+            modifier = Modifier
+                .padding(bottom = 16.dp, top = 40.dp)
+                .align(alignment = Alignment.Start)
+        )
+
+        EditUsernameField(
+            value = userInput,
+            onValueChange = {
+                userInput = it
+            },
+            modifier = Modifier
+                .padding(bottom = 5.dp)
+                .fillMaxWidth()
+        )
+
+        Text(
+            text = stringResource(R.string.password_label),
+            modifier = Modifier
+                .padding(bottom = 16.dp, top = 40.dp)
+                .align(alignment = Alignment.Start)
+        )
+
+        EditPasswordField(
+            value = passwordInput,
+            onValueChange = {
+                passwordInput = it
+            },
+            modifier = Modifier
+                .padding(bottom = 5.dp)
+                .fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(5.dp))
+
+        Button(onClick = {
+            onLoginSuccess()
+        }) {
+            Text(stringResource(R.string.login_button))
+        }
+
+        Spacer(modifier = Modifier.height(5.dp))
+
+        Text(
+            text = stringResource(R.string.register_button),
+            modifier = Modifier
+                .padding(bottom = 16.dp, top = 40.dp)
+                .align(alignment = Alignment.Start)
+                .clickable {
+                    onRegister()
+                }
+        )
+    }
+}
+
+@Composable
+fun RegisterScreen(onRegisterSuccess: () -> Unit) {
+    var nameInput by remember { mutableStateOf("") }
+    var emailInput by remember { mutableStateOf("") }
+    var userInput by remember { mutableStateOf("") }
+    var passwordInput by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .statusBarsPadding()
+            .padding(horizontal = 40.dp)
+            .verticalScroll(rememberScrollState())
+            .safeDrawingPadding(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = stringResource(R.string.name_label),
+            modifier = Modifier
+                .padding(bottom = 16.dp, top = 40.dp)
+                .align(alignment = Alignment.Start)
+        )
+
+        EditNameField(
+            value = nameInput,
+            onValueChange = {
+                nameInput = it
+            },
+            modifier = Modifier
+                .padding(bottom = 5.dp)
+                .fillMaxWidth()
+        )
+
+        Text(
+            text = stringResource(R.string.email_label),
+            modifier = Modifier
+                .padding(bottom = 16.dp, top = 40.dp)
+                .align(alignment = Alignment.Start)
+        )
+
+        EditEmailField(
+            value = emailInput,
+            onValueChange = {
+                emailInput = it
+            },
+            modifier = Modifier
+                .padding(bottom = 5.dp)
+                .fillMaxWidth()
+        )
+
+        Text(
+            text = stringResource(R.string.user_label),
+            modifier = Modifier
+                .padding(bottom = 16.dp, top = 40.dp)
+                .align(alignment = Alignment.Start)
+        )
+
+        EditUsernameField(
+            value = userInput,
+            onValueChange = {
+                userInput = it
+            },
+            modifier = Modifier
+                .padding(bottom = 5.dp)
+                .fillMaxWidth()
+        )
+
+        Text(
+            text = stringResource(R.string.password_label),
+            modifier = Modifier
+                .padding(bottom = 16.dp, top = 40.dp)
+                .align(alignment = Alignment.Start)
+        )
+
+        EditPasswordField(
+            value = passwordInput,
+            onValueChange = {
+                passwordInput = it
+            },
+            modifier = Modifier
+                .padding(bottom = 5.dp)
+                .fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(5.dp))
+
+        Button(onClick = {
+            onRegisterSuccess()
+        }) {
+            Text(stringResource(R.string.register_button))
+        }
+    }
+}
+
+@Composable
+fun ToDoLayout(onLogout: () -> Unit) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
@@ -258,9 +456,21 @@ fun ToDoLayout() {
                                 .clip(CircleShape)
                                 .clickable {
                                     val updatedTask =
-                                        dbHelper.getTaskById(taskList[actualIndex].id)?.copy(isDone = !taskList[actualIndex].isDone)
+                                        dbHelper.getTaskById(taskList[actualIndex].id)
+                                            ?.copy(isDone = !taskList[actualIndex].isDone)
                                     if (updatedTask != null) {
-                                        taskList[actualIndex] = updatedTask.copy(task = decrypt(updatedTask.task, updatedTask.taskIv, aesKey), date = decrypt(updatedTask.date, updatedTask.dateIv, aesKey))
+                                        taskList[actualIndex] = updatedTask.copy(
+                                            task = decrypt(
+                                                updatedTask.task,
+                                                updatedTask.taskIv,
+                                                aesKey
+                                            ),
+                                            date = decrypt(
+                                                updatedTask.date,
+                                                updatedTask.dateIv,
+                                                aesKey
+                                            )
+                                        )
                                         dbHelper.updateTask(updatedTask)
                                     }
                                 },
@@ -367,7 +577,86 @@ fun ToDoLayout() {
             }
         }
     }
+
+    Column (
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Bottom
+    ) {
+        Button(onClick = {
+            onLogout()
+        }) {
+            Text(stringResource(R.string.logout_button))
+        }
+    }
 }
+
+
+
+// ********** editable fields **********
+@Composable
+fun EditUsernameField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier){
+
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(stringResource(R.string.add_user_label)) },
+        modifier = modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+    )
+}
+
+@Composable
+fun EditPasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier){
+
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(stringResource(R.string.add_password_label)) },
+        modifier = modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+    )
+}
+
+@Composable
+fun EditNameField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier){
+
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(stringResource(R.string.add_name_label)) },
+        modifier = modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+    )
+}
+
+@Composable
+fun EditEmailField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier){
+
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(stringResource(R.string.add_email_label)) },
+        modifier = modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+    )
+}
+
 
 @Composable
 fun EditDateField(
@@ -412,6 +701,25 @@ fun EditDateField(
     )
 }
 
+@Composable
+fun EditTaskField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier){
+
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(stringResource(R.string.add_task_label)) },
+        modifier = modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+    )
+}
+
+
+
+// ********** date formatting **********
 fun formatDateForDisplay(date: String): String {
     return if (date.length == 8) {
         "${date.take(2)}/${date.substring(2, 4)}/${date.substring(4)}"
@@ -452,23 +760,8 @@ object DateOffsetMapper : OffsetMapping {
 }
 
 
-@Composable
-fun EditTaskField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier){
 
-    TextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(stringResource(R.string.add_task_label)) },
-        modifier = modifier.fillMaxWidth(),
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-    )
-}
-
-// cryptography
+// ********** cryptography **********
 fun crypto(text: String, aesKey: SecretKey): EncryptedData {
     if (text.isEmpty()) return EncryptedData("", "")
 
@@ -502,7 +795,20 @@ fun decrypt(encoded: String, ivString: String?, aesKey: SecretKey): String {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
+    var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
+
     ToDoListTheme {
-        ToDoLayout()
+        when (currentScreen) {
+            Screen.Login -> LoginScreen(
+                onLoginSuccess = { currentScreen = Screen.TodoList },
+                onRegister = { currentScreen = Screen.Register }
+            )
+            Screen.Register -> RegisterScreen(
+                onRegisterSuccess = { currentScreen = Screen.TodoList }
+            )
+            Screen.TodoList -> ToDoLayout(
+                onLogout = { currentScreen = Screen.Login }
+            )
+        }
     }
 }

@@ -7,4 +7,15 @@
     <string name="add_button">Add</string>
     <string name="delete_button">Delete all</string>
     <string name="complete_button">Complete all</string>
+    <string name="user_label">Username</string>
+    <string name="add_user_label">Insert the username</string>
+    <string name="password_label">Password</string>
+    <string name="add_password_label">Insert the password</string>
+    <string name="login_button">Login</string>
+    <string name="register_button">Register</string>
+    <string name="logout_button">Logout</string>
+    <string name="name_label">Name</string>
+    <string name="add_name_label">Insert your name</string>
+    <string name="email_label">Email</string>
+    <string name="add_email_label">Insert a valid email</string>
 </resources>
