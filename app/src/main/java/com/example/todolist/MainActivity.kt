@@ -60,6 +60,9 @@ import com.example.todolist.ui.theme.ToDoListTheme
 import java.util.Calendar
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.res.painterResource
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -115,15 +118,6 @@ data class TaskItem(
 
 data class EncryptedData(val ciphertext: String, val iv: String)
 
-data class RegisterItem(
-    val id: Long = -1,
-    val name: String,
-    val email: String,
-    val password: String,
-    val isEncrypted: Boolean,
-    val passwordIv: String?
-)
-
 
 
 // ********** screens **********
@@ -139,8 +133,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
             .verticalScroll(rememberScrollState())
             .safeDrawingPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
+        Icon(
+            painter = painterResource(id = R.drawable.icon_png),
+            contentDescription = "ToDo Icon",
+            modifier = Modifier.size(200.dp)
+                .padding(top = 24.dp),
+            tint = Color.Unspecified,
+        )
+
         Text(
             text = stringResource(R.string.user_label),
             modifier = Modifier
