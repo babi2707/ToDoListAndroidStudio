@@ -152,32 +152,6 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         return taskList
     }
 
-    fun getAllTasks(): List<TaskItem> {
-        val taskList = mutableListOf<TaskItem>()
-        val selectQuery = "SELECT * FROM $TABLE_TASKS"
-        val db = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-
-        if (cursor.moveToFirst()) {
-            do {
-                val task = TaskItem(
-                    id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID)),
-                    idUser = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID_USER)),
-                    date = cursor.getString(cursor.getColumnIndexOrThrow(KEY_DATE)),
-                    task = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TASK)),
-                    isDone = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_IS_DONE)) == 1,
-                    isEncrypted = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_IS_ENCRYPTED)) == 1,
-                    dateIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_DATE_IV)),
-                    taskIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TASK_IV))
-                )
-                taskList.add(task)
-            } while (cursor.moveToNext())
-        }
-        cursor.close()
-        db.close()
-        return taskList
-    }
-
     fun getTaskById(id: Long): TaskItem? {
         val selectQuery = "SELECT * FROM $TABLE_TASKS WHERE $KEY_ID = ?"
         val db = this.readableDatabase
@@ -203,6 +177,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     fun updateTask(task: TaskItem): Int {
         val db = this.writableDatabase
         val values = ContentValues().apply {
+            put(KEY_ID_USER, task.idUser)
             put(KEY_DATE, task.date)
             put(KEY_TASK, task.task)
             put(KEY_IS_DONE, if (task.isDone) 1 else 0)
@@ -232,9 +207,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         return rowsDeleted
     }
 
-    fun deleteAllTasks() {
+    fun deleteAllTasks(id: Long) {
         val db = this.writableDatabase
-        db.delete(TABLE_TASKS, null, null)
+        db.delete(TABLE_TASKS, "WHERE $KEY_ID = ?", arrayOf(id.toString()))
         db.close()
     }
 }

@@ -654,13 +654,24 @@ fun ToDoLayout(userId: Long?, onLogout: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically){
                     if(!taskList.all { it.isDone }){
                         Button(onClick = {
-                            val updatedTasks = dbHelper.getAllTasks().map { task ->
-                                task.copy(isDone = true).also { updatedTask ->
-                                    dbHelper.updateTask(updatedTask)
-                                }
-                            }
                             taskList.clear()
-                            updatedTasks.forEach { task -> taskList.add(task.copy(task = decrypt(task.task, task.taskIv, aesKey), date = decrypt(task.date, task.dateIv, aesKey))) }
+                            userId?.let {
+                                dbHelper.getAllTasksByUserId(it).map { task ->
+                                    task.copy(isDone = true).also { updatedTask ->
+                                        dbHelper.updateTask(updatedTask)
+                                    }
+                                }
+                            }?.forEach { task ->
+                                taskList.add(
+                                    task.copy(
+                                        task = decrypt(
+                                            task.task,
+                                            task.taskIv,
+                                            aesKey
+                                        ), date = decrypt(task.date, task.dateIv, aesKey)
+                                    )
+                                )
+                            }
                         }) {
                             Text(stringResource(R.string.complete_button))
                         }
@@ -669,7 +680,9 @@ fun ToDoLayout(userId: Long?, onLogout: () -> Unit) {
                     }
 
                     Button(onClick = {
-                        dbHelper.deleteAllTasks()
+                        if(userId != null){
+                            dbHelper.deleteAllTasks(userId)
+                        }
                         taskList.clear()
                     }) {
                         Text(stringResource(R.string.delete_button))
