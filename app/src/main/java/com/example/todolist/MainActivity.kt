@@ -53,7 +53,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.todolist.ui.theme.ToDoListTheme
@@ -63,6 +62,8 @@ import javax.crypto.SecretKey
 import androidx.compose.ui.res.painterResource
 
 class MainActivity : ComponentActivity() {
+    private var currentUserId by mutableStateOf<Long?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -75,15 +76,25 @@ class MainActivity : ComponentActivity() {
                 ) {
                     when (currentScreen) {
                         Screen.Login -> LoginScreen(
-                            onLoginSuccess = { currentScreen = Screen.TodoList },
+                            onLoginSuccess = { userId ->
+                                currentUserId = userId
+                                currentScreen = Screen.TodoList
+                            },
                             onRegister = { currentScreen = Screen.Register }
                         )
                         Screen.Register -> RegisterScreen(
-                            onRegisterSuccess = { currentScreen = Screen.TodoList },
+                            onRegisterSuccess = { userId ->
+                                currentUserId = userId
+                                currentScreen = Screen.Login
+                            },
                             onLogout = { currentScreen = Screen.Login }
                         )
                         Screen.TodoList -> ToDoLayout(
-                            onLogout = { currentScreen = Screen.Login }
+                            userId = currentUserId,
+                            onLogout = {
+                                currentUserId = null
+                                currentScreen = Screen.Login
+                            }
                         )
                     }
                 }
@@ -107,6 +118,7 @@ enum class FilterType {
 
 data class TaskItem(
     val id: Long = -1,
+    val idUser: Long = -1,
     val date: String,
     val task: String,
     val isDone: Boolean,
@@ -130,7 +142,7 @@ data class EncryptedData(val ciphertext: String, val iv: String)
 
 // ********** screens **********
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
+fun LoginScreen(onLoginSuccess: (Long) -> Unit, onRegister: () -> Unit) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
@@ -210,7 +222,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
                 } else {
                     val decryptedDbPassword = decrypt(user.password, user.passwordIv, aesKey)
                     if (decryptedDbPassword == passwordInput) {
-                        onLoginSuccess()
+                        onLoginSuccess(user.id)
                     } else {
                         errorMessage = "Incorrect password"
                     }
@@ -235,7 +247,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
 }
 
 @Composable
-fun RegisterScreen(onRegisterSuccess: () -> Unit, onLogout: () -> Unit) {
+fun RegisterScreen(onRegisterSuccess: (Long) -> Unit, onLogout: () -> Unit) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
@@ -357,7 +369,7 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit, onLogout: () -> Unit) {
                 errorMessage = "Account with this email or username already exists"
             } else {
                 dbHelper.addUser(registerItem)
-                onRegisterSuccess()
+                onRegisterSuccess(registerItem.id)
             }
         }) {
             Text(stringResource(R.string.register_button))
@@ -378,7 +390,7 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit, onLogout: () -> Unit) {
 }
 
 @Composable
-fun ToDoLayout(onLogout: () -> Unit) {
+fun ToDoLayout(userId: Long?, onLogout: () -> Unit) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
@@ -390,20 +402,22 @@ fun ToDoLayout(onLogout: () -> Unit) {
 
     val taskList = remember { mutableStateListOf<TaskItem>() }
 
-    LaunchedEffect(Unit) {
-        val tasksFromDb = dbHelper.getAllTasks()
+    LaunchedEffect(userId) {
+        if(userId != null) {
+            val tasksFromDb = dbHelper.getAllTasksByUserId(userId)
 
-        val decryptedTasks = tasksFromDb.map { task ->
-            task.copy(
-                date = decrypt(task.date, task.dateIv, aesKey),
-                task = decrypt(task.task, task.taskIv, aesKey),
-                isDone = task.isDone,
-                isEncrypted = false
-            )
+            val decryptedTasks = tasksFromDb.map { task ->
+                task.copy(
+                    date = decrypt(task.date, task.dateIv, aesKey),
+                    task = decrypt(task.task, task.taskIv, aesKey),
+                    isDone = task.isDone,
+                    isEncrypted = false
+                )
+            }
+
+            taskList.clear()
+            taskList.addAll(decryptedTasks)
         }
-
-        taskList.clear()
-        taskList.addAll(decryptedTasks)
     }
 
 
@@ -460,11 +474,12 @@ fun ToDoLayout(onLogout: () -> Unit) {
         Spacer(modifier = Modifier.height(5.dp))
 
         Button(onClick = {
-            if (dateInput.isNotBlank() && taskInput.isNotBlank()) {
+            if (dateInput.isNotBlank() && taskInput.isNotBlank() && userId != null) {
                 isDateValid = true
                 val dateEncrypted = crypto(dateInput, aesKey)
                 val taskEncrypted = crypto(taskInput, aesKey)
                 val newTask = TaskItem(
+                    idUser = userId,
                     date = dateEncrypted.ciphertext,
                     task = taskEncrypted.ciphertext,
                     isEncrypted = true,
@@ -671,7 +686,8 @@ fun ToDoLayout(onLogout: () -> Unit) {
         Button(
             modifier = Modifier.padding(bottom = 24.dp),
             onClick = {
-            onLogout()
+                taskList.clear()
+                onLogout()
         }) {
             Text(stringResource(R.string.logout_button))
         }
@@ -875,29 +891,5 @@ fun decrypt(encoded: String, ivString: String?, aesKey: SecretKey): String {
     } catch (e: Exception) {
         e.printStackTrace()
         return encoded
-    }
-}
-
-
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
-
-    ToDoListTheme {
-        when (currentScreen) {
-            Screen.Login -> LoginScreen(
-                onLoginSuccess = { currentScreen = Screen.TodoList },
-                onRegister = { currentScreen = Screen.Register }
-            )
-            Screen.Register -> RegisterScreen(
-                onRegisterSuccess = { currentScreen = Screen.TodoList },
-                onLogout = { currentScreen = Screen.Login }
-            )
-            Screen.TodoList -> ToDoLayout(
-                onLogout = { currentScreen = Screen.Login }
-            )
-        }
     }
 }

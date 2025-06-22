@@ -10,7 +10,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     companion object {
         // database
         private const val DATABASE_NAME = "todo.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
 
         // registers
         private const val TABLE_REGISTERS = "registers"
@@ -33,16 +33,6 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     override fun onCreate(db: SQLiteDatabase) {
-        val createTable = ("CREATE TABLE $TABLE_TASKS("
-                + "$KEY_ID INTEGER PRIMARY KEY AUTOINCREMENT,"
-                + "$KEY_DATE TEXT,"
-                + "$KEY_TASK TEXT,"
-                + "$KEY_IS_DONE INTEGER,"
-                + "$KEY_IS_ENCRYPTED INTEGER,"
-                + "$KEY_DATE_IV TEXT,"
-                + "$KEY_TASK_IV TEXT)")
-        db.execSQL(createTable)
-
         val createTableRegisters = ("CREATE TABLE $TABLE_REGISTERS("
                 + "$KEY_ID_USER INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "$KEY_NAME TEXT,"
@@ -51,6 +41,18 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 + "$KEY_PASSWORD TEXT,"
                 + "$KEY_PASSWORD_IV TEXT)")
         db.execSQL(createTableRegisters)
+
+        val createTable = ("CREATE TABLE $TABLE_TASKS("
+                + "$KEY_ID INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "$KEY_ID_USER INTEGER,"
+                + "$KEY_DATE TEXT,"
+                + "$KEY_TASK TEXT,"
+                + "$KEY_IS_DONE INTEGER,"
+                + "$KEY_IS_ENCRYPTED INTEGER,"
+                + "$KEY_DATE_IV TEXT,"
+                + "$KEY_TASK_IV TEXT,"
+                + "FOREIGN KEY($KEY_ID_USER) REFERENCES $TABLE_REGISTERS($KEY_ID_USER) ON DELETE CASCADE)")
+        db.execSQL(createTable)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -110,6 +112,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     fun addTask(task: TaskItem): Long {
         val db = this.writableDatabase
         val values = ContentValues().apply {
+            put(KEY_ID_USER, task.idUser)
             put(KEY_DATE, task.date)
             put(KEY_TASK, task.task)
             put(KEY_IS_DONE, if (task.isDone) 1 else 0)
@@ -122,6 +125,33 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         return id
     }
 
+    fun getAllTasksByUserId(id: Long): List<TaskItem> {
+        val taskList = mutableListOf<TaskItem>()
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("SELECT * FROM $TABLE_TASKS WHERE $KEY_ID_USER = ?",
+            arrayOf(id.toString())
+        )
+
+        if (cursor.moveToFirst()) {
+            do {
+                val task = TaskItem(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID)),
+                    idUser = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID_USER)),
+                    date = cursor.getString(cursor.getColumnIndexOrThrow(KEY_DATE)),
+                    task = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TASK)),
+                    isDone = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_IS_DONE)) == 1,
+                    isEncrypted = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_IS_ENCRYPTED)) == 1,
+                    dateIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_DATE_IV)),
+                    taskIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TASK_IV))
+                )
+                taskList.add(task)
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        db.close()
+        return taskList
+    }
+
     fun getAllTasks(): List<TaskItem> {
         val taskList = mutableListOf<TaskItem>()
         val selectQuery = "SELECT * FROM $TABLE_TASKS"
@@ -132,6 +162,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             do {
                 val task = TaskItem(
                     id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID)),
+                    idUser = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID_USER)),
                     date = cursor.getString(cursor.getColumnIndexOrThrow(KEY_DATE)),
                     task = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TASK)),
                     isDone = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_IS_DONE)) == 1,
