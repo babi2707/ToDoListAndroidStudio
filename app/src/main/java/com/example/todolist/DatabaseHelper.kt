@@ -207,9 +207,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         return rowsDeleted
     }
 
-    fun deleteAllTasks(id: Long) {
+    fun deleteAllTasks(userId: Long) {
         val db = this.writableDatabase
-        db.delete(TABLE_TASKS, "WHERE $KEY_ID = ?", arrayOf(id.toString()))
+        db.delete(TABLE_TASKS, "$KEY_ID_USER = ?", arrayOf(userId.toString()))
         db.close()
     }
 }

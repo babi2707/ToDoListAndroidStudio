@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +65,9 @@ import androidx.compose.ui.res.painterResource
 
 class MainActivity : ComponentActivity() {
     private var currentUserId by mutableStateOf<Long?>(null)
+    private var loginLoading by mutableStateOf(false)
+    private var registerLoading by mutableStateOf(false)
+    private var todoLoading by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,21 +85,27 @@ class MainActivity : ComponentActivity() {
                                 currentUserId = userId
                                 currentScreen = Screen.TodoList
                             },
-                            onRegister = { currentScreen = Screen.Register }
+                            onRegister = { currentScreen = Screen.Register },
+                            isLoading = loginLoading,
+                            onLoadingChange = { loginLoading = it }
                         )
                         Screen.Register -> RegisterScreen(
                             onRegisterSuccess = { userId ->
                                 currentUserId = userId
                                 currentScreen = Screen.Login
                             },
-                            onLogout = { currentScreen = Screen.Login }
+                            onLogout = { currentScreen = Screen.Login },
+                            isLoading = registerLoading,
+                            onLoadingChange = { registerLoading = it }
                         )
                         Screen.TodoList -> ToDoLayout(
                             userId = currentUserId,
                             onLogout = {
                                 currentUserId = null
                                 currentScreen = Screen.Login
-                            }
+                            },
+                            isLoading = todoLoading,
+                            onLoadingChange = { todoLoading = it }
                         )
                     }
                 }
@@ -142,7 +153,12 @@ data class EncryptedData(val ciphertext: String, val iv: String)
 
 // ********** screens **********
 @Composable
-fun LoginScreen(onLoginSuccess: (Long) -> Unit, onRegister: () -> Unit) {
+fun LoginScreen(onLoginSuccess: (
+                Long) -> Unit,
+                onRegister: () -> Unit,
+                isLoading: Boolean,
+                onLoadingChange: (Boolean) -> Unit
+) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
@@ -216,16 +232,21 @@ fun LoginScreen(onLoginSuccess: (Long) -> Unit, onRegister: () -> Unit) {
             if(userInput.isBlank() || passwordInput.isBlank()) {
                 errorMessage = "Please fill in all fields"
             } else {
-                val user = dbHelper.getUserByUsername(userInput)
-                if (user == null) {
-                    errorMessage = "User not found"
-                } else {
-                    val decryptedDbPassword = decrypt(user.password, user.passwordIv, aesKey)
-                    if (decryptedDbPassword == passwordInput) {
-                        onLoginSuccess(user.id)
+                onLoadingChange(true)
+                try {
+                    val user = dbHelper.getUserByUsername(userInput)
+                    if (user == null) {
+                        errorMessage = "User not found"
                     } else {
-                        errorMessage = "Incorrect password"
+                        val decryptedDbPassword = decrypt(user.password, user.passwordIv, aesKey)
+                        if (decryptedDbPassword == passwordInput) {
+                            onLoginSuccess(user.id)
+                        } else {
+                            errorMessage = "Incorrect password"
+                        }
                     }
+                } finally {
+                    onLoadingChange(false)
                 }
             }
         }) {
@@ -243,11 +264,20 @@ fun LoginScreen(onLoginSuccess: (Long) -> Unit, onRegister: () -> Unit) {
                     onRegister()
                 }
         )
+
+        if (isLoading) {
+            LoadingIndicator()
+        }
     }
 }
 
 @Composable
-fun RegisterScreen(onRegisterSuccess: (Long) -> Unit, onLogout: () -> Unit) {
+fun RegisterScreen(
+    onRegisterSuccess: (Long) -> Unit,
+    onLogout: () -> Unit,
+    isLoading: Boolean,
+    onLoadingChange: (Boolean) -> Unit
+) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
@@ -362,14 +392,19 @@ fun RegisterScreen(onRegisterSuccess: (Long) -> Unit, onLogout: () -> Unit) {
                 password = encryptedPassword.ciphertext,
                 passwordIv = encryptedPassword.iv
             )
+            onLoadingChange(true)
 
-            if(registerItem.name.isBlank() || registerItem.username.isBlank() || registerItem.email.isBlank() || registerItem.password.isBlank()) {
-                errorMessage = "Please fill in all fields"
-            } else if(dbHelper.checkUser(registerItem)) {
-                errorMessage = "Account with this email or username already exists"
-            } else {
-                dbHelper.addUser(registerItem)
-                onRegisterSuccess(registerItem.id)
+            try {
+                if(registerItem.name.isBlank() || registerItem.username.isBlank() || registerItem.email.isBlank() || registerItem.password.isBlank()) {
+                    errorMessage = "Please fill in all fields"
+                } else if(dbHelper.checkUser(registerItem)) {
+                    errorMessage = "Account with this email or username already exists"
+                } else {
+                    dbHelper.addUser(registerItem)
+                    onRegisterSuccess(registerItem.id)
+                }
+            } finally {
+                onLoadingChange(false)
             }
         }) {
             Text(stringResource(R.string.register_button))
@@ -387,10 +422,19 @@ fun RegisterScreen(onRegisterSuccess: (Long) -> Unit, onLogout: () -> Unit) {
                 }
         )
     }
+
+    if (isLoading) {
+        LoadingIndicator()
+    }
 }
 
 @Composable
-fun ToDoLayout(userId: Long?, onLogout: () -> Unit) {
+fun ToDoLayout(
+    userId: Long?,
+    onLogout: () -> Unit,
+    isLoading: Boolean,
+    onLoadingChange: (Boolean) -> Unit
+) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val aesKey = remember { KeyHelper.getOrCreateAesKey(context) }
@@ -404,19 +448,24 @@ fun ToDoLayout(userId: Long?, onLogout: () -> Unit) {
 
     LaunchedEffect(userId) {
         if(userId != null) {
-            val tasksFromDb = dbHelper.getAllTasksByUserId(userId)
+            onLoadingChange(true)
+            try {
+                val tasksFromDb = dbHelper.getAllTasksByUserId(userId)
 
-            val decryptedTasks = tasksFromDb.map { task ->
-                task.copy(
-                    date = decrypt(task.date, task.dateIv, aesKey),
-                    task = decrypt(task.task, task.taskIv, aesKey),
-                    isDone = task.isDone,
-                    isEncrypted = false
-                )
+                val decryptedTasks = tasksFromDb.map { task ->
+                    task.copy(
+                        date = decrypt(task.date, task.dateIv, aesKey),
+                        task = decrypt(task.task, task.taskIv, aesKey),
+                        isDone = task.isDone,
+                        isEncrypted = false
+                    )
+                }
+
+                taskList.clear()
+                taskList.addAll(decryptedTasks)
+            } finally {
+                onLoadingChange(false)
             }
-
-            taskList.clear()
-            taskList.addAll(decryptedTasks)
         }
     }
 
@@ -701,12 +750,31 @@ fun ToDoLayout(userId: Long?, onLogout: () -> Unit) {
             onClick = {
                 taskList.clear()
                 onLogout()
-        }) {
+            }) {
             Text(stringResource(R.string.logout_button))
         }
     }
+
+    if (isLoading) {
+        LoadingIndicator()
+    }
 }
 
+@Composable
+fun LoadingIndicator() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f)),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(64.dp),
+            color = MaterialTheme.colorScheme.primary,
+            strokeWidth = 6.dp
+        )
+    }
+}
 
 
 // ********** editable fields **********
