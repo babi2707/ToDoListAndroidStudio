@@ -61,7 +61,6 @@ import java.util.Calendar
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
 import androidx.compose.ui.res.painterResource
-import javax.crypto.spec.IvParameterSpec
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,9 +96,9 @@ class MainActivity : ComponentActivity() {
 
 // ********** classes **********
 sealed class Screen {
-    object Login : Screen()
-    object Register : Screen()
-    object TodoList : Screen()
+    data object Login : Screen()
+    data object Register : Screen()
+    data object TodoList : Screen()
 }
 
 enum class FilterType {
@@ -121,11 +120,6 @@ data class RegisterItem(
     val name: String,
     val username: String,
     val email: String,
-    val password: String,
-    val passwordIv: String?
-)
-
-data class PasswordItem(
     val password: String,
     val passwordIv: String?
 )
@@ -528,7 +522,7 @@ fun ToDoLayout(onLogout: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
         } else {
-            filteredTasks.forEachIndexed { index, taskItem ->
+            filteredTasks.forEachIndexed { _, taskItem ->
                 val actualIndex = taskList.indexOfFirst { it.date == taskItem.date && it.task == taskItem.task }
                 if (actualIndex != -1) {
                     Row(
