@@ -207,18 +207,20 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegister: () -> Unit) {
         }
 
         Button(onClick = {
-            val userPassword = dbHelper.getPasswordByUsername(userInput)
-
-            if(userPassword?.passwordIv != null){
-                val encryptedInputPassword = cryptoWithIv(userInput, userPassword.passwordIv.toByteArray(), aesKey)
-                val user = dbHelper.getUser(userInput, encryptedInputPassword)
+            if(userInput.isBlank() || passwordInput.isBlank()) {
+                errorMessage = "Please fill in all fields"
+            } else {
+                val user = dbHelper.getUserByUsername(userInput)
                 if (user == null) {
                     errorMessage = "User not found"
                 } else {
-                    onLoginSuccess()
+                    val decryptedDbPassword = decrypt(user.password, user.passwordIv, aesKey)
+                    if (decryptedDbPassword == passwordInput) {
+                        onLoginSuccess()
+                    } else {
+                        errorMessage = "Incorrect password"
+                    }
                 }
-            } else {
-                errorMessage = "Invalid username or password"
             }
         }) {
             Text(stringResource(R.string.login_button))
@@ -346,25 +348,22 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit, onLogout: () -> Unit) {
         }
 
         Button(onClick = {
-            if(nameInput.isBlank() && emailInput.isBlank() && userInput.isBlank() && passwordInput.isBlank()) {
+            val encryptedPassword = crypto(passwordInput, aesKey)
+            val registerItem = RegisterItem(
+                name = nameInput,
+                username = userInput,
+                email = emailInput,
+                password = encryptedPassword.ciphertext,
+                passwordIv = encryptedPassword.iv
+            )
+
+            if(registerItem.name.isBlank() || registerItem.username.isBlank() || registerItem.email.isBlank() || registerItem.password.isBlank()) {
                 errorMessage = "Please fill in all fields"
-            } else if(dbHelper.checkUserExists(userInput)) {
-                errorMessage = "Username already exists"
+            } else if(dbHelper.checkUser(registerItem)) {
+                errorMessage = "Account with this email or username already exists"
             } else {
-                val encryptedPassword = crypto(passwordInput, aesKey)
-                val newUser = RegisterItem(
-                    name = nameInput,
-                    username = userInput,
-                    email = emailInput,
-                    password = encryptedPassword.ciphertext,
-                    passwordIv = encryptedPassword.iv
-                )
-                val result = dbHelper.addUser(newUser)
-                if (result != -1L) {
-                    onRegisterSuccess()
-                } else {
-                    errorMessage = "Failed to register user"
-                }
+                dbHelper.addUser(registerItem)
+                onRegisterSuccess()
             }
         }) {
             Text(stringResource(R.string.register_button))
@@ -869,18 +868,6 @@ fun crypto(text: String, aesKey: SecretKey): EncryptedData {
         ciphertext = android.util.Base64.encodeToString(ciphertext, android.util.Base64.DEFAULT),
         iv = android.util.Base64.encodeToString(iv, android.util.Base64.DEFAULT)
     )
-}
-
-fun cryptoWithIv(text: String, iv: ByteArray, aesKey: SecretKey): String {
-    if (text.isEmpty()) return ""
-
-    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
-    val ivParameterSpec = IvParameterSpec(iv)
-    cipher.init(Cipher.ENCRYPT_MODE, aesKey, ivParameterSpec)
-
-    val ciphertext = cipher.doFinal(text.toByteArray(Charsets.UTF_8))
-
-    return android.util.Base64.encodeToString(ciphertext, android.util.Base64.DEFAULT)
 }
 
 fun decrypt(encoded: String, ivString: String?, aesKey: SecretKey): String {

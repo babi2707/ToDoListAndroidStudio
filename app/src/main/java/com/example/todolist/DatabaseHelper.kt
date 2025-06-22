@@ -54,77 +54,42 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_TASKS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_REGISTERS")
         onCreate(db)
     }
 
     // ********** registers **********
-    fun addUser(user: RegisterItem): Long {
+    fun addUser(register: RegisterItem): Long {
         val db = this.writableDatabase
-        return try {
-            val values = ContentValues().apply {
-                put(KEY_NAME, user.name)
-                put(KEY_USERNAME, user.username)
-                put(KEY_EMAIL, user.email)
-                put(KEY_PASSWORD, user.password)
-                put(KEY_PASSWORD_IV, user.passwordIv)
-            }
-            db.insert(TABLE_REGISTERS, null, values)
-        } catch (e: Exception) {
-            -1
-        } finally {
-            db.close()
+        val values = ContentValues().apply {
+            put(KEY_NAME, register.name)
+            put(KEY_USERNAME, register.username)
+            put(KEY_EMAIL, register.email)
+            put(KEY_PASSWORD, register.password)
+            put(KEY_PASSWORD_IV, register.passwordIv)
         }
+        val id = db.insert(TABLE_REGISTERS, null, values)
+        db.close()
+        return id
     }
 
-    fun getAllUsers(): List<RegisterItem> {
-        val usersList = mutableListOf<RegisterItem>()
-        val selectQuery = "SELECT * FROM $TABLE_REGISTERS"
+    fun checkUser(register: RegisterItem): Boolean {
         val db = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
+        val cursor = db.rawQuery("SELECT $KEY_ID_USER FROM $TABLE_REGISTERS WHERE $KEY_USERNAME = ? OR $KEY_EMAIL = ?",
+            arrayOf(register.username, register.email)
+        )
+        val exists = cursor.count > 0
 
-        if (cursor.moveToFirst()) {
-            do {
-                val user = RegisterItem(
-                    id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID_USER)),
-                    name = cursor.getString(cursor.getColumnIndexOrThrow(KEY_NAME)),
-                    username = cursor.getString(cursor.getColumnIndexOrThrow(KEY_USERNAME)),
-                    email = cursor.getString(cursor.getColumnIndexOrThrow(KEY_EMAIL)),
-                    password = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD)),
-                    passwordIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD_IV))
-                )
-                usersList.add(user)
-            } while (cursor.moveToNext())
-        }
         cursor.close()
         db.close()
-        return usersList
+        return exists
     }
 
-    fun getPasswordByUsername(username: String): PasswordItem? {
-        val selectQuery = "SELECT $KEY_PASSWORD, $KEY_PASSWORD_IV FROM $TABLE_REGISTERS WHERE $KEY_USERNAME = ?"
+    fun getUserByUsername(username: String): RegisterItem? {
         val db = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, arrayOf(username))
-        var password: PasswordItem? = null
-
-        if (cursor.moveToFirst()) {
-            password = PasswordItem(
-                password = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD)),
-                passwordIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD_IV))
-            )
-        }
-        cursor.close()
-        db.close()
-        return password
-    }
-
-    fun getUser(username: String, password: String): RegisterItem? {
-        val selectQuery = "SELECT * FROM $TABLE_REGISTERS WHERE $KEY_USERNAME = ? AND $KEY_PASSWORD = ?"
-        val db = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, arrayOf(username, password))
+        val cursor = db.rawQuery("SELECT * FROM $TABLE_REGISTERS WHERE $KEY_USERNAME = ?",
+            arrayOf(username)
+        )
         var user: RegisterItem? = null
-
         if (cursor.moveToFirst()) {
             user = RegisterItem(
                 id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID_USER)),
@@ -135,24 +100,10 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 passwordIv = cursor.getString(cursor.getColumnIndexOrThrow(KEY_PASSWORD_IV))
             )
         }
+
         cursor.close()
         db.close()
         return user
-    }
-
-    fun checkUserExists(username: String): Boolean {
-        val db = readableDatabase
-        val cursor = db.query(
-            TABLE_REGISTERS,
-            arrayOf(KEY_ID_USER),
-            "$KEY_USERNAME = ?",
-            arrayOf(username),
-            null, null, null
-        )
-
-        val exists = cursor.count > 0
-        cursor.close()
-        return exists
     }
 
     // ********** tasks **********
