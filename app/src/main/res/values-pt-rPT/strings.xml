@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="add_date">Data</string>
+    <string name="add_date_label">Adicione uma data</string>
+    <string name="add_task">Tarefa</string>
+    <string name="add_task_label">Adicione uma tarefa</string>
+    <string name="add_button">Adicionar</string>
+    <string name="delete_button">Deletar tudo</string>
+    <string name="complete_button">Completar tudo</string>
+    <string name="user_label">Nome de Usuário</string>
+    <string name="add_user_label">Insire o nome de usuário</string>
+    <string name="password_label">Senha</string>
+    <string name="add_password_label">Insira a senha</string>
+    <string name="login_button">Entrar</string>
+    <string name="register_button">Cadastrar</string>
+    <string name="logout_button">Sair</string>
+    <string name="name_label">Nome</string>
+    <string name="add_name_label">Insira seu nome</string>
+    <string name="add_email_label">Insira um email válido</string>
+    <string name="blank_error">Por favor preencha todos os campos</string>
+    <string name="login_user_not_found">Usuário não encontrado</string>
+    <string name="login_password_error">Senha incorreta</string>
+    <string name="user_already_exists">Conta com esse email ou nome de usuário já existe</string>
+    <string name="all">Todas</string>
+    <string name="pending">Pendentes</string>
+    <string name="completed">Completas</string>
+    <string name="empty_list">Nenhuma tarefa encontrada</string>
+    <string name="done">Feito</string>
+    <string name="delete_task">Deletar tarefa</string>
+</resources>

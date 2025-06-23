@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ToDo</string>
+    <string name="app_name" translatable="false">ToDo</string>
     <string name="add_date">Date</string>
     <string name="add_date_label">Add a Date</string>
     <string name="add_task">Task</string>
@@ -16,6 +16,17 @@
     <string name="logout_button">Logout</string>
     <string name="name_label">Name</string>
     <string name="add_name_label">Insert your name</string>
-    <string name="email_label">Email</string>
+    <string name="email_label" translatable="false">Email</string>
     <string name="add_email_label">Insert a valid email</string>
+    <string name="blank_error">Please fill in all fields</string>
+    <string name="login_user_not_found">User not found</string>
+    <string name="login_password_error">Incorrect password</string>
+    <string name="user_already_exists">Account with this email or username already exists</string>
+    <string name="all">All</string>
+    <string name="pending">Pending</string>
+    <string name="completed">Completed</string>
+    <string name="empty_list">No tasks found</string>
+    <string name="done">Done</string>
+    <string name="delete_task">Delete task</string>
+    <string name="todo_icon">Todo Icon</string>
 </resources>

@@ -167,6 +167,10 @@ fun LoginScreen(onLoginSuccess: (
     var passwordInput by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    val blankErrorText = stringResource(R.string.blank_error)
+    val userNotFoundText = stringResource(R.string.login_user_not_found)
+    val passwordErrorText = stringResource(R.string.login_password_error)
+
     Column(
         modifier = Modifier
             .statusBarsPadding()
@@ -178,7 +182,7 @@ fun LoginScreen(onLoginSuccess: (
     ) {
         Icon(
             painter = painterResource(id = R.drawable.icon_png),
-            contentDescription = "ToDo Icon",
+            contentDescription = stringResource(R.string.todo_icon),
             modifier = Modifier.size(200.dp)
                 .padding(top = 24.dp),
             tint = Color.Unspecified,
@@ -230,19 +234,19 @@ fun LoginScreen(onLoginSuccess: (
 
         Button(onClick = {
             if(userInput.isBlank() || passwordInput.isBlank()) {
-                errorMessage = "Please fill in all fields"
+                errorMessage = blankErrorText
             } else {
                 onLoadingChange(true)
                 try {
                     val user = dbHelper.getUserByUsername(userInput)
                     if (user == null) {
-                        errorMessage = "User not found"
+                        errorMessage = userNotFoundText
                     } else {
                         val decryptedDbPassword = decrypt(user.password, user.passwordIv, aesKey)
                         if (decryptedDbPassword == passwordInput) {
                             onLoginSuccess(user.id)
                         } else {
-                            errorMessage = "Incorrect password"
+                            errorMessage = passwordErrorText
                         }
                     }
                 } finally {
@@ -288,6 +292,9 @@ fun RegisterScreen(
     var passwordInput by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    val blankErrorText = stringResource(R.string.blank_error)
+    val userExistisText = stringResource(R.string.user_already_exists)
+
     Column(
         modifier = Modifier
             .statusBarsPadding()
@@ -299,7 +306,7 @@ fun RegisterScreen(
     ) {
         Icon(
             painter = painterResource(id = R.drawable.icon_png),
-            contentDescription = "ToDo Icon",
+            contentDescription = stringResource(R.string.todo_icon),
             modifier = Modifier.size(150.dp)
                 .padding(top = 8.dp),
             tint = Color.Unspecified,
@@ -396,9 +403,9 @@ fun RegisterScreen(
 
             try {
                 if(registerItem.name.isBlank() || registerItem.username.isBlank() || registerItem.email.isBlank() || registerItem.password.isBlank()) {
-                    errorMessage = "Please fill in all fields"
+                    errorMessage = blankErrorText
                 } else if(dbHelper.checkUser(registerItem)) {
-                    errorMessage = "Account with this email or username already exists"
+                    errorMessage = userExistisText
                 } else {
                     dbHelper.addUser(registerItem)
                     onRegisterSuccess(registerItem.id)
@@ -558,21 +565,21 @@ fun ToDoLayout(
             FilterChip(
                 selected = selectedFilter == FilterType.ALL,
                 onClick = { selectedFilter = FilterType.ALL },
-                label = { Text("All") },
+                label = { Text(stringResource(R.string.all)) },
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
 
             FilterChip(
                 selected = selectedFilter == FilterType.PENDING,
                 onClick = { selectedFilter = FilterType.PENDING },
-                label = { Text("Pending") },
+                label = { Text(stringResource(R.string.pending)) },
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
 
             FilterChip(
                 selected = selectedFilter == FilterType.COMPLETED,
                 onClick = { selectedFilter = FilterType.COMPLETED },
-                label = { Text("Completed") },
+                label = { Text(stringResource(R.string.completed)) },
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
@@ -581,7 +588,7 @@ fun ToDoLayout(
 
         if (filteredTasks.isEmpty()) {
             Text(
-                text = "No tasks found",
+                text = stringResource(R.string.empty_list),
                 modifier = Modifier.padding(16.dp),
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -631,7 +638,7 @@ fun ToDoLayout(
                             if (taskItem.isDone) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
-                                    contentDescription = "Done",
+                                    contentDescription = stringResource(R.string.done),
                                     modifier = Modifier.padding(2.dp)
                                 )
                             }
@@ -647,7 +654,7 @@ fun ToDoLayout(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Default.DateRange,
-                                    contentDescription = "Date",
+                                    contentDescription = stringResource(R.string.add_date),
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -665,7 +672,7 @@ fun ToDoLayout(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
-                                    contentDescription = "Task",
+                                    contentDescription = R.string.add_task.toString(),
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -684,7 +691,7 @@ fun ToDoLayout(
 
                         Icon(
                             imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete task",
+                            contentDescription = stringResource(R.string.delete_task),
                             modifier = Modifier
                                 .size(24.dp)
                                 .clickable {
