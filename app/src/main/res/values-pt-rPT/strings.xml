@@ -27,4 +27,5 @@
     <string name="empty_list">Nenhuma tarefa encontrada</string>
     <string name="done">Feito</string>
     <string name="delete_task">Deletar tarefa</string>
+    <string name="todo_icon">Icone ToDo</string>
 </resources>
