@@ -294,6 +294,8 @@ fun RegisterScreen(
 
     val blankErrorText = stringResource(R.string.blank_error)
     val userExistisText = stringResource(R.string.user_already_exists)
+    val emailText = stringResource(R.string.email_error)
+    val passwordText = stringResource(R.string.password_error)
 
     Column(
         modifier = Modifier
@@ -406,6 +408,10 @@ fun RegisterScreen(
                     errorMessage = blankErrorText
                 } else if(dbHelper.checkUser(registerItem)) {
                     errorMessage = userExistisText
+                } else if (!(registerItem.email.contains("@") && registerItem.email.contains(".") && registerItem.email.length > 6)) {
+                    errorMessage = emailText
+                } else if (passwordInput.length < 8) {
+                    errorMessage = passwordText
                 } else {
                     dbHelper.addUser(registerItem)
                     onRegisterSuccess(registerItem.id)

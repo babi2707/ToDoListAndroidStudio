@@ -29,4 +29,6 @@
     <string name="done">Done</string>
     <string name="delete_task">Delete task</string>
     <string name="todo_icon">ToDo Icon</string>
+    <string name="email_error">Invalid email, insert a valid email</string>
+    <string name="password_error">Password must have at least 8 characters</string>
 </resources>

@@ -28,4 +28,6 @@
     <string name="done">Feito</string>
     <string name="delete_task">Deletar tarefa</string>
     <string name="todo_icon">Icone ToDo</string>
+    <string name="email_error">Email inválido, insira um email válido</string>
+    <string name="password_error">A senha precisa ter pelo menos 8 caracteres</string>
 </resources>
