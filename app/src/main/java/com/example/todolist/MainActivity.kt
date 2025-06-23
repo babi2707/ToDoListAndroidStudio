@@ -62,6 +62,7 @@ import java.util.Calendar
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 class MainActivity : ComponentActivity() {
     private var currentUserId by mutableStateOf<Long?>(null)
@@ -818,8 +819,12 @@ fun EditPasswordField(
         onValueChange = onValueChange,
         label = { Text(stringResource(R.string.add_password_label)) },
         modifier = modifier.fillMaxWidth(),
+        visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            autoCorrect = false
+        ),
     )
 }
 
