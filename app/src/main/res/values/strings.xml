@@ -28,5 +28,5 @@
     <string name="empty_list">No tasks found</string>
     <string name="done">Done</string>
     <string name="delete_task">Delete task</string>
-    <string name="todo_icon">Todo Icon</string>
+    <string name="todo_icon">ToDo Icon</string>
 </resources>
