@@ -28,3 +28,25 @@ O aplicativo utiliza criptografia de ponta a ponta para proteger os dados do usu
 3. Configure um dispositivo virtual ou conecte um dispositivo físico com depuração USB habilitada
 4. Execute o aplicativo
 
+## Requisitos do Sistema
+- Android 8.0 (API nível 26) ou superior
+- Android Studio (para desenvolvimento)
+
+## Como usar
+1. Primeiro acesso:
+   - Crie uma conta na tela de registro
+   - Faça login com suas credenciais
+2. Adicionando tarefas:
+   - Toque no campo de data para selecionar uma data
+   - Digite a descrição da tarefa
+   - Toque em "Adicionar"
+3. Gerenciando tarefas:
+   - Toque no círculo para marcar/desmarcar como concluída
+   - Toque no ícone de lixeira para excluir
+   - Use os filtros no topo para visualizar diferentes categorias
+4. Gerenciamento em massa:
+   - "Completar tudo" - marca todas as tarefas como concluídas
+   - "Excluir tudo" - remove todas as tarefas
+5. Logout:
+   - Toque no botão "Sair" no final da tela para deslogar
+
