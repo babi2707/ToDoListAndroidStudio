@@ -619,24 +619,15 @@ fun ToDoLayout(
                                 .size(24.dp)
                                 .clip(CircleShape)
                                 .clickable {
-                                    val updatedTask =
-                                        dbHelper.getTaskById(taskList[actualIndex].id)
-                                            ?.copy(isDone = !taskList[actualIndex].isDone)
-                                    if (updatedTask != null) {
-                                        taskList[actualIndex] = updatedTask.copy(
-                                            task = decrypt(
-                                                updatedTask.task,
-                                                updatedTask.taskIv,
-                                                aesKey
-                                            ),
-                                            date = decrypt(
-                                                updatedTask.date,
-                                                updatedTask.dateIv,
-                                                aesKey
-                                            )
-                                        )
-                                        dbHelper.updateTask(updatedTask)
-                                    }
+                                    val updatedTask = taskList[actualIndex].copy(isDone = !taskList[actualIndex].isDone)
+                                    taskList[actualIndex] = updatedTask.copy(
+                                        task = decrypt(updatedTask.task, updatedTask.taskIv, aesKey),
+                                        date = decrypt(updatedTask.date, updatedTask.dateIv, aesKey)
+                                    )
+                                    dbHelper.updateTask(updatedTask.copy(
+                                        task = crypto(updatedTask.task, aesKey).ciphertext,
+                                        date = crypto(updatedTask.date, aesKey).ciphertext
+                                    ))
                                 },
                             color = if (taskItem.isDone) Color.hsl(120f, 0.4f, 0.55f) else Color.LightGray,
                             contentColor = Color.White,
