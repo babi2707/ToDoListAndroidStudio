@@ -50,3 +50,14 @@ O aplicativo utiliza criptografia de ponta a ponta para proteger os dados do usu
 5. Logout:
    - Toque no botão "Sair" no final da tela para deslogar
 
+## Segurança
+O aplicativo implementa várias medidas de segurança:
+- Todas as senhas são criptografadas antes de serem armazenadas
+- As tarefas são criptografadas no banco de dados
+- A chave de criptografia é armazenada de forma segura usando Android KeyStore
+
+## Tecnologias Utilizadas
+- Kotlin
+- Jetpack Compose
+- SQLite (banco de dados local)
+- Android Security Crypto (para criptografia)
