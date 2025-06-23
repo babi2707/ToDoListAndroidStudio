@@ -61,3 +61,6 @@ O aplicativo implementa várias medidas de segurança:
 - Jetpack Compose
 - SQLite (banco de dados local)
 - Android Security Crypto (para criptografia)
+
+## Capturas de Tela
+<p align="center"> <img src="Screenshots/login_screen.png" width="200" alt="Tela de Login"> <img src="Screenshots/task_screen.png" width="200" alt="Lista de Tarefas"> </p>
